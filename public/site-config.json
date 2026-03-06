@@ -1,0 +1,76 @@
+{
+  "texts": [
+    {
+      "id": "1",
+      "section": "Home",
+      "key": "Main Heading",
+      "value": "Coming Soon"
+    },
+    {
+      "id": "2",
+      "section": "Home",
+      "key": "Subheading",
+      "value": "We are building the ultimate streaming experience. Get ready for our first original web series."
+    },
+    {
+      "id": "3",
+      "section": "Home",
+      "key": "Video Badge",
+      "value": "Official Announcement"
+    },
+    {
+      "id": "4",
+      "section": "Home",
+      "key": "Video Title",
+      "value": "UNDELETED"
+    },
+    {
+      "id": "5",
+      "section": "Home",
+      "key": "Video Subtitle",
+      "value": "Season 1 coming soon exclusively on AKPLAY."
+    },
+    {
+      "id": "6",
+      "section": "Library",
+      "key": "Page Message",
+      "value": "Our content library is being curated. Stay tuned for an amazing collection."
+    },
+    {
+      "id": "7",
+      "section": "Community",
+      "key": "Page Message",
+      "value": "Our community hub is under construction. Join us soon to connect with creators and fans."
+    },
+    {
+      "id": "8",
+      "section": "Subscription",
+      "key": "Heading",
+      "value": "Choose Your Plan"
+    },
+    {
+      "id": "9",
+      "section": "Subscription",
+      "key": "Subheading",
+      "value": "Unlock unlimited entertainment with AKPLAY. Pick the plan that suits you best."
+    }
+  ],
+  "videos": [
+    {
+      "id": "1",
+      "title": "UNDELETED - Season 1 Trailer",
+      "description": "Official announcement trailer",
+      "file": "/videos/InShot_20260203_184738626.mp4",
+      "status": "published"
+    }
+  ],
+  "communityPosts": [
+    {
+      "id": "1772827064531",
+      "author": "AKPLAY Official",
+      "text": "THIS IS A TEST POST ",
+      "image": "",
+      "date": "3/7/2026"
+    }
+  ]
+}

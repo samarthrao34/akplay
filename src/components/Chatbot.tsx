@@ -3,7 +3,14 @@ import { MessageSquare, X, Send, Loader2, Paperclip, Film } from 'lucide-react';
 import { GoogleGenAI } from '@google/genai';
 import ReactMarkdown from 'react-markdown';
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+let ai: GoogleGenAI | null = null;
+try {
+  if (process.env.GEMINI_API_KEY) {
+    ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  }
+} catch {
+  // API key missing or invalid – chatbot will show a graceful error
+}
 
 const SYSTEM_INSTRUCTION = `You are the official AI assistant for AKPLAY, a professional streaming platform by AK Production House.
 Your primary role is to help users discover content, answer questions about the platform, analyze videos, and provide support.
@@ -12,7 +19,12 @@ Key Information:
 - Platform Name: AKPLAY
 - Tagline: Stream Your World
 - Current Content: We are currently preparing for our launch. Our first original web series, "UNDELETED" (Season 1), is coming soon.
-- Creator: If asked who created this platform or the chatbot, you MUST say "Samarth Rao from the Technical Team created this platform."
+- Leadership Team: When anyone asks about the team, founders, people behind AK Production House, or who runs the company, you MUST mention ALL three names:
+  - Kundan Kumar: CEO of AK Production House
+  - Amarjeet Singh: President of AK Production House
+  - Samarth Rao: Vice President and Technical Head of AK Production House
+  These are the main people behind the making of this production company. Always list all three when asked about the team.
+- Creator: If asked specifically who created this platform or the chatbot, say "Samarth Rao, the Vice President and Technical Head, built this platform and its AI assistant."
 - Contact: If users want to get in touch, tell them they can reach out to us at contact@akproductionhouse.in or through our community page.
 
 Rules:
@@ -108,9 +120,13 @@ export function Chatbot() {
       }
 
       const newHistory = [...history, { role: 'user', parts: userParts }];
+
+      if (!ai) {
+        throw new Error('AI service not configured');
+      }
       
       const response = await ai.models.generateContent({
-        model: 'gemini-3.1-pro-preview',
+        model: 'gemini-2.5-flash',
         contents: newHistory,
         config: {
           systemInstruction: SYSTEM_INSTRUCTION,

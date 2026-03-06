@@ -1,51 +1,43 @@
-import { useState } from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { useCallback, useState } from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { Home } from "./pages/Home";
 import { Library } from "./pages/Library";
-import { Dashboard } from "./pages/Dashboard";
+import { Admin } from "./pages/Admin";
 import { Community } from "./pages/Community";
 import { Account } from "./pages/Account";
 import { Search } from "./pages/Search";
+import { Subscription } from "./pages/Subscription";
+import { IntroAnimation } from "./components/IntroAnimation";
+import { SiteProvider } from "./context/SiteContext";
 
 export default function App() {
-  const [isLoading, setIsLoading] = useState(true);
-
-  if (isLoading) {
-    return (
-      <div className="fixed inset-0 bg-black z-50 flex items-center justify-center">
-        <video 
-          // TODO: Replace this URL with your actual loading video URL
-          src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4" 
-          autoPlay 
-          muted 
-          playsInline
-          onEnded={() => setIsLoading(false)}
-          className="w-full h-full object-contain"
-        />
-        <button 
-          onClick={() => setIsLoading(false)}
-          className="absolute bottom-8 right-8 text-white/50 hover:text-white text-sm font-medium tracking-wider uppercase transition-colors"
-        >
-          Skip Intro
-        </button>
-      </div>
-    );
-  }
+  const [introDone, setIntroDone] = useState(false);
+  const handleIntroDone = useCallback(() => setIntroDone(true), []);
 
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Layout />}>
-          <Route index element={<Home />} />
-          <Route path="library" element={<Library />} />
-          <Route path="dashboard" element={<Dashboard />} />
-          <Route path="community" element={<Community />} />
-          <Route path="account" element={<Account />} />
-          <Route path="search" element={<Search />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+    <>
+      {!introDone && <IntroAnimation onFinish={handleIntroDone} />}
+
+      <div style={{ opacity: introDone ? 1 : 0, transition: "opacity 0.5s ease" }}>
+        <SiteProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Layout />}>
+                <Route index element={<Home />} />
+                <Route path="library" element={<Library />} />
+                <Route path="admin" element={<Admin />} />
+                <Route path="community" element={<Community />} />
+                <Route path="account" element={<Account />} />
+                <Route path="search" element={<Search />} />
+                <Route path="subscription" element={<Subscription />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Route>
+            </Routes>
+          </BrowserRouter>
+        </SiteProvider>
+      </div>
+    </>
   );
 }
 

@@ -2,8 +2,8 @@ import { User, CreditCard, Settings, LogOut, Shield } from "lucide-react";
 
 export function Account() {
   return (
-    <div className="min-h-full bg-[#0a0a0a] text-white p-12 pt-24 max-w-5xl mx-auto">
-      <h1 className="text-4xl font-black tracking-tight mb-8">
+    <div className="min-h-full bg-[#050505] text-white p-8 pt-8 max-w-5xl mx-auto">
+      <h1 className="text-3xl font-extrabold tracking-tight mb-8">
         Account Management
       </h1>
 
@@ -24,15 +24,15 @@ export function Account() {
               key={i}
               className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-colors text-left ${
                 item.active
-                  ? "bg-[#E62429]/10 text-[#E62429] font-bold"
-                  : "text-gray-400 hover:bg-[#1a1a1a] hover:text-white font-medium"
+                  ? "bg-[#E62429]/12 text-[#E62429] font-bold shadow-lg shadow-[#E62429]/10"
+                  : "text-gray-400 hover:bg-white/5 hover:text-white font-medium"
               }`}
             >
               <item.icon className="w-5 h-5" />
               <span>{item.label}</span>
             </button>
           ))}
-          <div className="pt-4 border-t border-[#2a2a2a] mt-4">
+          <div className="pt-4 border-t border-white/5 mt-4">
             <button className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-red-500 hover:bg-red-500/10 transition-colors text-left font-medium">
               <LogOut className="w-5 h-5" />
               <span>Sign Out</span>
@@ -42,15 +42,15 @@ export function Account() {
 
         {/* Content Area */}
         <div className="lg:col-span-2 space-y-8">
-          <div className="bg-[#141414] border border-[#2a2a2a] rounded-2xl p-8">
-            <h2 className="text-2xl font-bold mb-6">Profile Information</h2>
+          <div className="glass-card rounded-3xl p-8">
+            <h2 className="text-xl font-bold mb-6">Profile Information</h2>
 
             <div className="flex items-center space-x-6 mb-8">
               <div className="relative">
                 <img
                   src="https://picsum.photos/seed/avatar/150/150"
                   alt="Profile"
-                  className="w-24 h-24 rounded-full object-cover border-4 border-[#2a2a2a]"
+                  className="w-24 h-24 rounded-full object-cover border-4 border-white/10"
                   referrerPolicy="no-referrer"
                 />
                 <button className="absolute bottom-0 right-0 bg-[#E62429] text-white p-2 rounded-full border-2 border-[#141414] hover:bg-[#ff333a] transition-colors">
@@ -75,7 +75,7 @@ export function Account() {
                   <input
                     type="text"
                     defaultValue="John"
-                    className="w-full bg-[#0a0a0a] border border-[#333] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#E62429] transition-colors"
+                    className="w-full glass-input rounded-2xl px-4 py-3 text-white focus:outline-none"
                   />
                 </div>
                 <div>
@@ -85,7 +85,7 @@ export function Account() {
                   <input
                     type="text"
                     defaultValue="Doe"
-                    className="w-full bg-[#0a0a0a] border border-[#333] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#E62429] transition-colors"
+                    className="w-full glass-input rounded-2xl px-4 py-3 text-white focus:outline-none"
                   />
                 </div>
               </div>
@@ -96,7 +96,7 @@ export function Account() {
                 <input
                   type="email"
                   defaultValue="john.doe@example.com"
-                  className="w-full bg-[#0a0a0a] border border-[#333] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#E62429] transition-colors"
+                  className="w-full glass-input rounded-2xl px-4 py-3 text-white focus:outline-none"
                 />
               </div>
               <div>
@@ -106,13 +106,13 @@ export function Account() {
                 <textarea
                   rows={4}
                   defaultValue="Film enthusiast and aspiring creator."
-                  className="w-full bg-[#0a0a0a] border border-[#333] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#E62429] transition-colors resize-none"
+                  className="w-full glass-input rounded-2xl px-4 py-3 text-white focus:outline-none resize-none"
                 />
               </div>
               <div className="flex justify-end">
                 <button
                   type="button"
-                  className="bg-[#E62429] hover:bg-[#ff333a] text-white px-8 py-3 rounded-xl font-bold transition-colors"
+                  className="bg-gradient-to-r from-[#E62429] to-[#ff333a] hover:shadow-lg hover:shadow-[#E62429]/30 text-white px-8 py-3 rounded-2xl font-bold transition-all"
                 >
                   Save Changes
                 </button>

@@ -24,8 +24,8 @@ export function Search() {
   );
 
   return (
-    <div className="min-h-full bg-[#0a0a0a] text-white p-12 pt-24">
-      <h1 className="text-3xl font-bold mb-8">
+    <div className="min-h-full bg-[#050505] text-white p-8 pt-8">
+      <h1 className="text-3xl font-extrabold tracking-tight mb-8">
         Search Results for "{query}"
       </h1>
 
@@ -42,7 +42,7 @@ export function Search() {
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.3, delay: index * 0.05 }}
-              className="group relative rounded-xl overflow-hidden cursor-pointer aspect-[2/3]"
+              className="group relative rounded-2xl overflow-hidden cursor-pointer aspect-[2/3] glass-card"
             >
               <img 
                 src={item.image} 
@@ -60,7 +60,7 @@ export function Search() {
                     {item.rating}
                   </span>
                 </div>
-                <button className="w-full bg-[#E62429] hover:bg-[#ff333a] text-white py-2 rounded-lg font-bold flex items-center justify-center space-x-2 transition-colors">
+                <button className="w-full bg-gradient-to-r from-[#E62429] to-[#ff333a] text-white py-2 rounded-xl font-bold flex items-center justify-center space-x-2 transition-all hover:shadow-lg hover:shadow-[#E62429]/30 text-sm">
                   <Play className="w-4 h-4 fill-current" />
                   <span>Watch</span>
                 </button>
