@@ -61,7 +61,7 @@ export function Admin() {
     setPublishing(true);
     const ok = await saveToServer();
     setPublishing(false);
-    showSave(ok ? "Published to codebase!" : "Failed to publish — check dev server.");
+    showSave(ok ? "Changes saved & published!" : "Saved locally! Server sync will retry on next save.");
   };
 
   // Video management

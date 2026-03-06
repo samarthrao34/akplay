@@ -78,19 +78,39 @@ const SiteContext = createContext<SiteContextValue | null>(null);
 export function SiteProvider({ children }: { children: ReactNode }) {
   const [config, setConfig] = useState<SiteConfig>(loadConfig);
 
-  // Also try to load from server config on mount (to pick up codebase changes)
+  // Load latest config from server (Vercel Blob in production, static file in dev)
   useEffect(() => {
-    fetch("/site-config.json")
-      .then((r) => r.json())
-      .then((serverConfig: SiteConfig) => {
-        // Only use server config if localStorage is empty (first load)
+    const loadFromServer = async () => {
+      try {
+        // Try API endpoint first (works on Vercel production)
+        const apiRes = await fetch("/api/load-config");
+        if (apiRes.ok) {
+          const serverConfig = await apiRes.json();
+          if (serverConfig && serverConfig.texts) {
+            setConfig(serverConfig);
+            persistConfig(serverConfig);
+            return;
+          }
+        }
+      } catch { /* API not available, try static file */ }
+
+      try {
+        // Fallback to static file (works in Vite dev)
         const localRaw = localStorage.getItem(STORAGE_KEY);
         if (!localRaw) {
-          setConfig(serverConfig);
-          persistConfig(serverConfig);
+          const res = await fetch("/site-config.json");
+          if (res.ok) {
+            const serverConfig = await res.json();
+            if (serverConfig && serverConfig.texts) {
+              setConfig(serverConfig);
+              persistConfig(serverConfig);
+            }
+          }
         }
-      })
-      .catch(() => {});
+      } catch { /* use default */ }
+    };
+
+    loadFromServer();
   }, []);
 
   // Persist on every change
@@ -111,6 +131,9 @@ export function SiteProvider({ children }: { children: ReactNode }) {
   };
 
   const saveToServer = async (): Promise<boolean> => {
+    // Always persist to localStorage first
+    persistConfig(config);
+
     try {
       const res = await fetch("/api/save-config", {
         method: "POST",
