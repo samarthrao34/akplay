@@ -78,11 +78,11 @@ const SiteContext = createContext<SiteContextValue | null>(null);
 export function SiteProvider({ children }: { children: ReactNode }) {
   const [config, setConfig] = useState<SiteConfig>(loadConfig);
 
-  // Load latest config from server (Vercel Blob in production, static file in dev)
+  // Always load the latest config from server so all visitors see admin changes
   useEffect(() => {
     const loadFromServer = async () => {
       try {
-        // Try API endpoint first (works on Vercel production)
+        // Try API endpoint first (Vercel Blob in production)
         const apiRes = await fetch("/api/load-config");
         if (apiRes.ok) {
           const serverConfig = await apiRes.json();
@@ -92,25 +92,26 @@ export function SiteProvider({ children }: { children: ReactNode }) {
             return;
           }
         }
-      } catch { /* API not available, try static file */ }
+      } catch { /* API not available */ }
 
       try {
-        // Fallback to static file (works in Vite dev)
-        const localRaw = localStorage.getItem(STORAGE_KEY);
-        if (!localRaw) {
-          const res = await fetch("/site-config.json");
-          if (res.ok) {
-            const serverConfig = await res.json();
-            if (serverConfig && serverConfig.texts) {
-              setConfig(serverConfig);
-              persistConfig(serverConfig);
-            }
+        // Fallback to static file (Vite dev server)
+        const res = await fetch("/site-config.json");
+        if (res.ok) {
+          const serverConfig = await res.json();
+          if (serverConfig && serverConfig.texts) {
+            setConfig(serverConfig);
+            persistConfig(serverConfig);
           }
         }
-      } catch { /* use default */ }
+      } catch { /* use local/default */ }
     };
 
     loadFromServer();
+
+    // Poll for changes every 30 seconds so visitors see admin updates without refreshing
+    const interval = setInterval(loadFromServer, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   // Persist on every change
