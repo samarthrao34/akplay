@@ -16,7 +16,7 @@ export function Library() {
         <div className="w-20 h-20 mx-auto mb-6 rounded-3xl glass-card flex items-center justify-center">
           <Film className="w-10 h-10 text-[#E62429]" />
         </div>
-        <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-white via-gray-200 to-gray-500 mb-4">
+        <h1 className="text-3xl sm:text-5xl md:text-7xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-white via-gray-200 to-gray-500 mb-4">
           Coming Soon
         </h1>
         <p className="text-gray-400 text-lg max-w-md mx-auto">

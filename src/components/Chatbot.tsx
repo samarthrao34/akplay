@@ -152,15 +152,15 @@ export function Chatbot() {
       {/* Floating Button */}
       <button
         onClick={() => setIsOpen(true)}
-        className={`fixed bottom-6 right-6 w-14 h-14 bg-[#E62429] text-white rounded-full flex items-center justify-center shadow-lg shadow-[#E62429]/30 hover:bg-[#ff333a] hover:scale-105 transition-all z-50 ${isOpen ? 'scale-0 opacity-0' : 'scale-100 opacity-100'}`}
+        className={`fixed bottom-20 md:bottom-6 right-4 md:right-6 w-14 h-14 bg-[#E62429] text-white rounded-full flex items-center justify-center shadow-lg shadow-[#E62429]/30 hover:bg-[#ff333a] hover:scale-105 transition-all z-50 ${isOpen ? 'scale-0 opacity-0' : 'scale-100 opacity-100'}`}
       >
         <MessageSquare className="w-6 h-6" />
       </button>
 
       {/* Chat Window */}
       <div
-        className={`fixed bottom-6 right-6 w-80 sm:w-96 bg-[#141414] border border-[#2a2a2a] rounded-2xl shadow-2xl flex flex-col overflow-hidden transition-all duration-300 z-50 origin-bottom-right ${isOpen ? 'scale-100 opacity-100' : 'scale-0 opacity-0 pointer-events-none'}`}
-        style={{ height: '500px', maxHeight: 'calc(100vh - 48px)' }}
+        className={`fixed bottom-20 right-2 md:bottom-6 md:right-6 w-[calc(100vw-16px)] sm:w-96 bg-[#141414] border border-[#2a2a2a] rounded-2xl shadow-2xl flex flex-col overflow-hidden transition-all duration-300 z-50 origin-bottom-right ${isOpen ? 'scale-100 opacity-100' : 'scale-0 opacity-0 pointer-events-none'}`}
+        style={{ height: '450px', maxHeight: 'calc(100vh - 100px)' }}
       >
         {/* Header */}
         <div className="bg-[#1a1a1a] border-b border-[#2a2a2a] p-4 flex items-center justify-between">

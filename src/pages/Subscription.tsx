@@ -88,17 +88,17 @@ export function Subscription() {
   };
 
   return (
-    <div className="min-h-full bg-[#050505] text-white py-12 px-8">
+    <div className="min-h-full bg-[#050505] text-white py-8 md:py-12 px-4 md:px-8">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
         className="text-center mb-16"
       >
-        <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight mb-4">
+        <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight mb-3 md:mb-4">
           Choose Your Plan
         </h1>
-        <p className="text-gray-400 text-lg max-w-xl mx-auto">
+        <p className="text-gray-400 text-base md:text-lg max-w-xl mx-auto">
           Unlock unlimited entertainment with AKPLAY. Pick the plan that suits you best.
         </p>
       </motion.div>
@@ -132,7 +132,7 @@ export function Subscription() {
         </motion.div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-6 max-w-5xl mx-auto">
         {PLANS.map((plan, index) => {
           const Icon = plan.icon;
           const isCurrent = subscribed === plan.id;
@@ -142,7 +142,7 @@ export function Subscription() {
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: index * 0.1 }}
-              className={`relative glass-card rounded-3xl p-8 flex flex-col ${
+              className={`relative glass-card rounded-3xl p-6 md:p-8 flex flex-col ${
                 plan.popular ? `ring-1 ring-[#E62429]/30 ${plan.shadow} shadow-2xl` : ""
               } ${isCurrent ? "ring-2 ring-green-500/40" : ""}`}
             >

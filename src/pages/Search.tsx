@@ -24,8 +24,8 @@ export function Search() {
   );
 
   return (
-    <div className="min-h-full bg-[#050505] text-white p-8 pt-8">
-      <h1 className="text-3xl font-extrabold tracking-tight mb-8">
+    <div className="min-h-full bg-[#050505] text-white p-4 md:p-8 pt-6 md:pt-8">
+      <h1 className="text-xl md:text-3xl font-extrabold tracking-tight mb-6 md:mb-8">
         Search Results for "{query}"
       </h1>
 
@@ -35,7 +35,7 @@ export function Search() {
           <p className="mt-2">Try searching with different keywords.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 md:gap-6">
           {results.map((item, index) => (
             <motion.div
               key={item.id}

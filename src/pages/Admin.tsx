@@ -133,7 +133,7 @@ export function Admin() {
   // LOGIN SCREEN
   if (!isLoggedIn) {
     return (
-      <div className="min-h-full bg-[#050505] text-white flex items-center justify-center p-8">
+      <div className="min-h-full bg-[#050505] text-white flex items-center justify-center p-4 md:p-8">
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -203,7 +203,7 @@ export function Admin() {
 
   // ADMIN PANEL
   return (
-    <div className="min-h-full bg-[#050505] text-white p-8">
+    <div className="min-h-full bg-[#050505] text-white p-4 md:p-8">
       {/* Save notification */}
       {saveNotif && (
         <motion.div
@@ -218,19 +218,20 @@ export function Admin() {
       )}
 
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 md:mb-8 gap-4">
         <div>
-          <h1 className="text-3xl font-extrabold tracking-tight">Admin Panel</h1>
+          <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">Admin Panel</h1>
           <p className="text-gray-400 text-sm mt-1">Manage your AKPLAY platform</p>
         </div>
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-2 sm:space-x-3">
           <button
             onClick={publishToCodebase}
             disabled={publishing}
             className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white px-5 py-2.5 rounded-2xl text-sm font-bold flex items-center space-x-2 hover:shadow-lg hover:shadow-emerald-500/30 transition-all disabled:opacity-50"
           >
             <CloudUpload className="w-4 h-4" />
-            <span>{publishing ? "Publishing..." : "Publish to Codebase"}</span>
+            <span className="hidden sm:inline">{publishing ? "Publishing..." : "Publish to Codebase"}</span>
+            <span className="sm:hidden">{publishing ? "..." : "Publish"}</span>
           </button>
           <button
             onClick={() => {
@@ -247,7 +248,7 @@ export function Admin() {
       </div>
 
       {/* Tabs */}
-      <div className="flex space-x-2 mb-8 overflow-x-auto scrollbar-hide">
+      <div className="flex space-x-2 mb-6 md:mb-8 overflow-x-auto scrollbar-hide pb-1">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           return (

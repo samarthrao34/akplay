@@ -2,12 +2,12 @@ import { User, CreditCard, Settings, LogOut, Shield } from "lucide-react";
 
 export function Account() {
   return (
-    <div className="min-h-full bg-[#050505] text-white p-8 pt-8 max-w-5xl mx-auto">
-      <h1 className="text-3xl font-extrabold tracking-tight mb-8">
+    <div className="min-h-full bg-[#050505] text-white p-4 md:p-8 pt-6 md:pt-8 max-w-5xl mx-auto">
+      <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight mb-6 md:mb-8">
         Account Management
       </h1>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
         {/* Sidebar */}
         <div className="space-y-2">
           {[
@@ -42,10 +42,10 @@ export function Account() {
 
         {/* Content Area */}
         <div className="lg:col-span-2 space-y-8">
-          <div className="glass-card rounded-3xl p-8">
+          <div className="glass-card rounded-3xl p-5 md:p-8">
             <h2 className="text-xl font-bold mb-6">Profile Information</h2>
 
-            <div className="flex items-center space-x-6 mb-8">
+            <div className="flex items-center space-x-4 md:space-x-6 mb-6 md:mb-8">
               <div className="relative">
                 <img
                   src="https://picsum.photos/seed/avatar/150/150"
@@ -67,7 +67,7 @@ export function Account() {
             </div>
 
             <form className="space-y-6">
-              <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-400 mb-2">
                     First Name
