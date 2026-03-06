@@ -3,13 +3,14 @@ import { MessageSquare, X, Send, Loader2, Paperclip, Film } from 'lucide-react';
 import { GoogleGenAI } from '@google/genai';
 import ReactMarkdown from 'react-markdown';
 
-let ai: GoogleGenAI | null = null;
-try {
-  if (process.env.GEMINI_API_KEY) {
-    ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+function getAI(): GoogleGenAI | null {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) return null;
+  try {
+    return new GoogleGenAI({ apiKey: key });
+  } catch {
+    return null;
   }
-} catch {
-  // API key missing or invalid – chatbot will show a graceful error
 }
 
 const SYSTEM_INSTRUCTION = `You are the official AI assistant for AKPLAY, a professional streaming platform by AK Production House.
@@ -101,7 +102,7 @@ export function Chatbot() {
     setMessages(prev => [...prev, newMessage]);
     setIsTyping(true);
 
-    try {
+    const sendRequest = async (attempt: number): Promise<string> => {
       const userParts: any[] = [];
       if (userMessage) {
         userParts.push({ text: userMessage });
@@ -121,11 +122,12 @@ export function Chatbot() {
 
       const newHistory = [...history, { role: 'user', parts: userParts }];
 
-      if (!ai) {
-        throw new Error('AI service not configured');
+      const client = getAI();
+      if (!client) {
+        return "Our AI assistant is being set up. Please check back shortly!";
       }
       
-      const response = await ai.models.generateContent({
+      const response = await client.models.generateContent({
         model: 'gemini-2.5-flash',
         contents: newHistory,
         config: {
@@ -137,11 +139,22 @@ export function Chatbot() {
       const modelText = response.text || '';
       newHistory.push({ role: 'model', parts: [{ text: modelText }] });
       setHistory(newHistory);
-      
-      setMessages(prev => [...prev, { role: 'model', text: modelText }]);
+      return modelText;
+    };
+
+    try {
+      const reply = await sendRequest(1);
+      setMessages(prev => [...prev, { role: 'model', text: reply }]);
     } catch (error) {
-      console.error('Chat error:', error);
-      setMessages(prev => [...prev, { role: 'model', text: 'Sorry, I encountered an error. Please try again later.' }]);
+      // Retry once on failure
+      try {
+        await new Promise(r => setTimeout(r, 1000));
+        const reply = await sendRequest(2);
+        setMessages(prev => [...prev, { role: 'model', text: reply }]);
+      } catch {
+        console.error('Chat error after retry:', error);
+        setMessages(prev => [...prev, { role: 'model', text: "I'm having a little trouble connecting right now. Could you try sending your message again in a moment?" }]);
+      }
     } finally {
       setIsTyping(false);
     }
