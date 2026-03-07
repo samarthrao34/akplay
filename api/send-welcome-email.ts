@@ -6,11 +6,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { name, email } = req.body ?? {};
+  const { name, email, type = 'signup' } = req.body ?? {};
 
   if (!name || !email) {
     return res.status(400).json({ error: 'Name and email are required' });
   }
+
+  const isLogin = type === 'login';
 
   const transporter = nodemailer.createTransport({
     host: 'smtp.hostinger.com',
@@ -22,17 +24,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     },
   });
 
-  const mailOptions = {
-    from: '"Samarth Rao — AKPLAY" <akplay@akproductionhouse.in>',
-    to: email,
-    subject: `Welcome aboard, ${name}! So glad you're here 🎬`,
-    html: `
-      <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #0a0a0a; border-radius: 16px; overflow: hidden; border: 1px solid #222;">
-        <div style="background: linear-gradient(135deg, #E62429, #ff333a); padding: 40px 30px; text-align: center;">
-          <h1 style="color: #fff; font-size: 32px; margin: 0; letter-spacing: 2px;">AKPLAY</h1>
-          <p style="color: rgba(255,255,255,0.9); font-size: 14px; margin-top: 8px;">Your Entertainment, Your Way</p>
-        </div>
-        <div style="padding: 36px 30px; color: #e0e0e0;">
+  const signupBody = `
           <h2 style="color: #fff; font-size: 22px; margin: 0 0 20px;">Hey ${name}! 👋</h2>
           <p style="font-size: 15px; line-height: 1.8; margin: 0 0 18px; color: #ccc;">
             I just wanted to personally drop in and say — <strong style="color: #fff;">welcome to AKPLAY!</strong> You have no idea how happy it makes me to see you join us.
@@ -58,7 +50,43 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           </p>
           <p style="font-size: 15px; line-height: 1.8; margin: 0 0 8px; color: #ccc;">
             Welcome to the family. Let's make something incredible together. ❤️
+          </p>`;
+
+  const loginBody = `
+          <h2 style="color: #fff; font-size: 22px; margin: 0 0 20px;">Welcome back, ${name}! 🙌</h2>
+          <p style="font-size: 15px; line-height: 1.8; margin: 0 0 18px; color: #ccc;">
+            Hey! Just noticed you logged back in — and honestly, it made my day. It's always great to see familiar faces on AKPLAY.
           </p>
+          <p style="font-size: 15px; line-height: 1.8; margin: 0 0 18px; color: #ccc;">
+            We've been working hard behind the scenes to bring you fresh content, new features, and an even better experience. Every time you come back, it reminds us why we do this.
+          </p>
+          <div style="background: #151515; border-radius: 12px; padding: 20px; margin: 24px 0; border: 1px solid #222;">
+            <p style="font-size: 14px; color: #999; margin: 0 0 12px;">Here's what's waiting for you:</p>
+            <ul style="font-size: 14px; color: #ccc; padding-left: 18px; margin: 0; line-height: 2.2;">
+              <li>🎬 New videos and content added to the library</li>
+              <li>💬 Fresh posts and conversations in the community</li>
+              <li>🤖 Soni is here if you need help with anything</li>
+              <li>⭐ Check your subscription status and stay premium</li>
+            </ul>
+          </div>
+          <p style="font-size: 15px; line-height: 1.8; margin: 0 0 8px; color: #ccc;">
+            Thanks for being a part of this journey. You're what makes AKPLAY special. ❤️
+          </p>`;
+
+  const mailOptions = {
+    from: '"Samarth Rao — AKPLAY" <akplay@akproductionhouse.in>',
+    to: email,
+    subject: isLogin
+      ? `Welcome back, ${name}! Great to see you again 🎬`
+      : `Welcome aboard, ${name}! So glad you're here 🎬`,
+    html: `
+      <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #0a0a0a; border-radius: 16px; overflow: hidden; border: 1px solid #222;">
+        <div style="background: linear-gradient(135deg, #E62429, #ff333a); padding: 40px 30px; text-align: center;">
+          <h1 style="color: #fff; font-size: 32px; margin: 0; letter-spacing: 2px;">AKPLAY</h1>
+          <p style="color: rgba(255,255,255,0.9); font-size: 14px; margin-top: 8px;">Your Entertainment, Your Way</p>
+        </div>
+        <div style="padding: 36px 30px; color: #e0e0e0;">
+          ${isLogin ? loginBody : signupBody}
           <div style="text-align: center; margin: 32px 0 28px;">
             <a href="https://akplay.in" style="display: inline-block; background: linear-gradient(135deg, #E62429, #ff333a); color: #fff; text-decoration: none; padding: 14px 36px; border-radius: 12px; font-weight: bold; font-size: 15px;">
               Start Exploring AKPLAY →
@@ -84,7 +112,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             © ${new Date().getFullYear()} AKPLAY by AK Production House. All rights reserved.
           </p>
           <p style="font-size: 11px; color: #555; margin: 8px 0 0;">
-            This email was sent to ${email} because you signed up on AKPLAY.
+            This email was sent to ${email} because you ${isLogin ? 'logged into' : 'signed up on'} AKPLAY.
           </p>
         </div>
       </div>

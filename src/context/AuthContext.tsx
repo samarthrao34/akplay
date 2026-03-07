@@ -245,7 +245,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     fetch("/api/send-welcome-email", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email }),
+      body: JSON.stringify({ name, email, type: "signup" }),
     }).catch(() => {});
 
     return { success: true };
@@ -266,6 +266,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setActiveProfileId(u.profiles[0].id);
       saveSession({ userId: u.id, profileId: u.profiles[0].id });
     }
+
+    // Send welcome-back email (fire-and-forget)
+    fetch("/api/send-welcome-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: u.name, email: u.email, type: "login" }),
+    }).catch(() => {});
+
     return { success: true };
   }, [users]);
 
