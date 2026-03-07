@@ -1,18 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Send, Loader2, Paperclip, Film } from 'lucide-react';
-import { GoogleGenAI } from '@google/genai';
 import ReactMarkdown from 'react-markdown';
 import { useSiteConfig } from '../context/SiteContext';
-
-function getAI(): GoogleGenAI | null {
-  const key = process.env.GEMINI_API_KEY;
-  if (!key) return null;
-  try {
-    return new GoogleGenAI({ apiKey: key });
-  } catch {
-    return null;
-  }
-}
 
 // Anime girl face SVG for Soni
 const SoniAvatar = ({ size = 32 }: { size?: number }) => (
@@ -170,21 +159,22 @@ export function Chatbot() {
 
       const newHistory = [...history, { role: 'user', parts: userParts }];
 
-      const client = getAI();
-      if (!client) {
-        return "Our AI assistant is being set up. Please check back shortly!";
-      }
-      
-      const response = await client.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: newHistory,
-        config: {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           systemInstruction: buildSystemInstruction(videoNames, communityPostSummaries),
-          temperature: 0.7,
-        }
+          contents: newHistory,
+        }),
       });
 
-      const modelText = response.text || '';
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || 'AI request failed');
+      }
+
+      const data = await response.json();
+      const modelText = data.text || '';
       newHistory.push({ role: 'model', parts: [{ text: modelText }] });
       setHistory(newHistory);
       return modelText;
