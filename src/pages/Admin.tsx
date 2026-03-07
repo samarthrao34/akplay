@@ -111,9 +111,13 @@ export function Admin() {
     const newPost: CommunityPost = {
       id: Date.now().toString(),
       author: "AKPLAY Official",
+      authorId: "admin",
+      authorAvatar: "",
       text: "",
       image: "",
       date: new Date().toLocaleDateString(),
+      isAdmin: true,
+      likes: [],
     };
     setCommunityPosts([...communityPosts, newPost]);
   };
@@ -519,20 +523,53 @@ export function Admin() {
       {activeTab === "community" && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold">Community Posts</h2>
+            <div>
+              <h2 className="text-xl font-bold">Community Moderation</h2>
+              <p className="text-sm text-gray-400 mt-1">{communityPosts.length} total posts — {communityPosts.filter((p) => !p.isAdmin).length} from users, {communityPosts.filter((p) => p.isAdmin).length} from admin</p>
+            </div>
             <button
               onClick={addPost}
               className="bg-gradient-to-r from-[#E62429] to-orange-500 text-white px-5 py-2.5 rounded-2xl font-bold text-sm flex items-center space-x-2 hover:shadow-lg hover:shadow-[#E62429]/30 transition-all"
             >
               <Plus className="w-4 h-4" />
-              <span>New Post</span>
+              <span>Official Post</span>
             </button>
           </div>
 
           {communityPosts.map((post) => (
             <div key={post.id} className="glass-card rounded-3xl p-6 space-y-4">
               <div className="flex items-start justify-between">
-                <div className="flex-1 space-y-4">
+                <div className="flex items-center gap-3">
+                  {post.authorAvatar ? (
+                    <img src={post.authorAvatar} alt="" className="w-10 h-10 rounded-full bg-white/10" />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-[#E62429]/20 flex items-center justify-center text-white font-bold text-sm">
+                      {post.author.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-sm text-white">{post.author}</span>
+                      {post.isAdmin ? (
+                        <span className="text-[10px] font-bold bg-[#E62429]/20 text-[#E62429] px-1.5 py-0.5 rounded">ADMIN</span>
+                      ) : (
+                        <span className="text-[10px] font-bold bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded">USER</span>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-500">{post.date} • {(post.likes || []).length} likes</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => { deletePost(post.id); publishToCodebase(); }}
+                  className="p-2 rounded-xl text-red-400 hover:bg-red-500/10 transition-colors"
+                  title="Delete post"
+                >
+                  <Trash2 className="w-5 h-5" />
+                </button>
+              </div>
+
+              {post.isAdmin ? (
+                <div className="space-y-3">
                   <div>
                     <label className="block text-xs font-medium text-gray-400 mb-1.5">Author</label>
                     <input
@@ -549,7 +586,7 @@ export function Admin() {
                       onChange={(e) => updatePost(post.id, "text", e.target.value)}
                       rows={3}
                       className="w-full glass-input rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none resize-none"
-                      placeholder="Write your post content..."
+                      placeholder="Write official post content..."
                     />
                   </div>
                   <div>
@@ -562,32 +599,32 @@ export function Admin() {
                       placeholder="https://example.com/image.jpg"
                     />
                   </div>
-                  <p className="text-xs text-gray-500">Created: {post.date}</p>
+                  <div className="flex justify-end">
+                    <button
+                      onClick={publishToCodebase}
+                      disabled={publishing}
+                      className="bg-gradient-to-r from-[#E62429] to-orange-500 text-white px-6 py-2 rounded-xl font-bold text-sm flex items-center space-x-2 hover:shadow-lg hover:shadow-[#E62429]/30 transition-all disabled:opacity-50"
+                    >
+                      <Save className="w-4 h-4" />
+                      <span>{publishing ? "Saving..." : "Publish"}</span>
+                    </button>
+                  </div>
                 </div>
-                <button
-                  onClick={() => deletePost(post.id)}
-                  className="ml-4 p-2 rounded-xl text-red-400 hover:bg-red-500/10 transition-colors"
-                >
-                  <Trash2 className="w-5 h-5" />
-                </button>
-              </div>
-              <div className="flex justify-end">
-                <button
-                  onClick={publishToCodebase}
-                  disabled={publishing}
-                  className="bg-gradient-to-r from-[#E62429] to-orange-500 text-white px-6 py-2 rounded-xl font-bold text-sm flex items-center space-x-2 hover:shadow-lg hover:shadow-[#E62429]/30 transition-all disabled:opacity-50"
-                >
-                  <Save className="w-4 h-4" />
-                  <span>{publishing ? "Saving..." : "Save Post"}</span>
-                </button>
-              </div>
+              ) : (
+                <div>
+                  <p className="text-gray-200 text-sm whitespace-pre-wrap">{post.text}</p>
+                  {post.image && (
+                    <img src={post.image} alt="" className="mt-3 rounded-xl w-full object-cover max-h-60 border border-white/5" />
+                  )}
+                </div>
+              )}
             </div>
           ))}
 
           {communityPosts.length === 0 && (
             <div className="glass-card rounded-3xl p-12 text-center">
               <MessageSquare className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-              <p className="text-gray-400">No community posts yet. Click "New Post" to create one.</p>
+              <p className="text-gray-400">No community posts yet.</p>
             </div>
           )}
         </motion.div>

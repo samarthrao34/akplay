@@ -18,9 +18,13 @@ export interface VideoEntry {
 export interface CommunityPost {
   id: string;
   author: string;
+  authorId: string;
+  authorAvatar: string;
   text: string;
   image: string;
   date: string;
+  isAdmin: boolean;
+  likes: string[];
 }
 
 export interface SiteConfig {
@@ -36,6 +40,9 @@ interface SiteContextValue extends SiteConfig {
   setCommunityPosts: (posts: CommunityPost[]) => void;
   getText: (section: string, key: string) => string;
   saveToServer: () => Promise<boolean>;
+  addUserPost: (post: CommunityPost) => void;
+  deleteUserPost: (postId: string) => void;
+  toggleLike: (postId: string, userId: string) => void;
 }
 
 const DEFAULT_CONFIG: SiteConfig = {
@@ -147,6 +154,53 @@ export function SiteProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const addUserPost = (post: CommunityPost) => {
+    setConfig((prev) => {
+      const updated = { ...prev, communityPosts: [post, ...prev.communityPosts] };
+      persistConfig(updated);
+      // Save to server so all users see the post
+      fetch("/api/save-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updated),
+      }).catch(() => {});
+      return updated;
+    });
+  };
+
+  const deleteUserPost = (postId: string) => {
+    setConfig((prev) => {
+      const updated = { ...prev, communityPosts: prev.communityPosts.filter((p) => p.id !== postId) };
+      persistConfig(updated);
+      fetch("/api/save-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updated),
+      }).catch(() => {});
+      return updated;
+    });
+  };
+
+  const toggleLike = (postId: string, userId: string) => {
+    setConfig((prev) => {
+      const updated = {
+        ...prev,
+        communityPosts: prev.communityPosts.map((p) => {
+          if (p.id !== postId) return p;
+          const likes = p.likes || [];
+          return { ...p, likes: likes.includes(userId) ? likes.filter((id) => id !== userId) : [...likes, userId] };
+        }),
+      };
+      persistConfig(updated);
+      fetch("/api/save-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updated),
+      }).catch(() => {});
+      return updated;
+    });
+  };
+
   return (
     <SiteContext.Provider
       value={{
@@ -157,6 +211,9 @@ export function SiteProvider({ children }: { children: ReactNode }) {
         setCommunityPosts: (communityPosts) => setConfig((prev) => ({ ...prev, communityPosts })),
         getText,
         saveToServer,
+        addUserPost,
+        deleteUserPost,
+        toggleLike,
       }}
     >
       {children}
