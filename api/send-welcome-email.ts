@@ -1,6 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import nodemailer from 'nodemailer';
 
+// Simple in-memory rate limiting (per serverless cold start)
+const recentEmails = new Map<string, number>();
+const RATE_LIMIT_MS = 60_000; // 1 email per minute per address
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -8,10 +12,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const { name, email, type = 'signup' } = req.body ?? {};
 
-  if (!name || !email) {
+  if (!name || !email || typeof name !== 'string' || typeof email !== 'string') {
     return res.status(400).json({ error: 'Name and email are required' });
   }
 
+  // Validate email format
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  if (!emailRegex.test(email) || email.length > 254) {
+    return res.status(400).json({ error: 'Invalid email address' });
+  }
+
+  // Sanitize name (max 100 chars, strip HTML)
+  const safeName = name.slice(0, 100).replace(/[<>&"']/g, '');
+
+  // Rate limit
+  const lastSent = recentEmails.get(email.toLowerCase());
+  if (lastSent && Date.now() - lastSent < RATE_LIMIT_MS) {
+    return res.status(429).json({ error: 'Please wait before requesting another email' });
+  }
+  recentEmails.set(email.toLowerCase(), Date.now());
+
+  // Validate type
   const isLogin = type === 'login';
 
   const transporter = nodemailer.createTransport({
@@ -25,7 +46,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   });
 
   const signupBody = `
-          <h2 style="color: #fff; font-size: 22px; margin: 0 0 20px;">Hey ${name}! 👋</h2>
+          <h2 style="color: #fff; font-size: 22px; margin: 0 0 20px;">Hey ${safeName}! 👋</h2>
           <p style="font-size: 15px; line-height: 1.8; margin: 0 0 18px; color: #ccc;">
             I just wanted to personally drop in and say — <strong style="color: #fff;">welcome to AKPLAY!</strong> You have no idea how happy it makes me to see you join us.
           </p>
@@ -53,7 +74,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           </p>`;
 
   const loginBody = `
-          <h2 style="color: #fff; font-size: 22px; margin: 0 0 20px;">Welcome back, ${name}! 🙌</h2>
+          <h2 style="color: #fff; font-size: 22px; margin: 0 0 20px;">Welcome back, ${safeName}! 🙌</h2>
           <p style="font-size: 15px; line-height: 1.8; margin: 0 0 18px; color: #ccc;">
             Hey! Just noticed you logged back in — and honestly, it made my day. It's always great to see familiar faces on AKPLAY.
           </p>
@@ -77,8 +98,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     from: '"Samarth Rao — AKPLAY" <akplay@akproductionhouse.in>',
     to: email,
     subject: isLogin
-      ? `Welcome back, ${name}! Great to see you again 🎬`
-      : `Welcome aboard, ${name}! So glad you're here 🎬`,
+      ? `Welcome back, ${safeName}! Great to see you again 🎬`
+      : `Welcome aboard, ${safeName}! So glad you're here 🎬`,
     html: `
       <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #0a0a0a; border-radius: 16px; overflow: hidden; border: 1px solid #222;">
         <div style="background: linear-gradient(135deg, #E62429, #ff333a); padding: 40px 30px; text-align: center;">

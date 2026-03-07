@@ -134,6 +134,11 @@ export function Subscription() {
     }
   };
 
+  // Determine if user is upgrading
+  const planOrder: PlanId[] = ["basic", "standard", "premium"];
+  const currentPlanIndex = currentPlan ? planOrder.indexOf(currentPlan as PlanId) : -1;
+  const isUpgrading = (planId: PlanId) => currentPlan && !isSubscriptionExpired && planOrder.indexOf(planId) > currentPlanIndex;
+
   return (
     <div className="min-h-full bg-[#050505] text-white py-8 md:py-12 px-4 md:px-8">
       <motion.div
@@ -196,12 +201,6 @@ export function Subscription() {
               Expires: {new Date(user.subscriptionExpiry).toLocaleDateString()}
             </p>
           )}
-          <button
-            onClick={() => setSubscription(null)}
-            className="mt-6 text-sm text-gray-500 hover:text-white transition-colors"
-          >
-            Change Plan
-          </button>
         </motion.div>
       )}
 
@@ -252,16 +251,24 @@ export function Subscription() {
 
               <button
                 onClick={() => handleSubscribe(plan)}
-                disabled={isCurrent}
+                disabled={isCurrent && !isSubscriptionExpired}
                 className={`w-full py-3.5 rounded-2xl font-bold text-sm transition-all duration-300 ${
-                  isCurrent
+                  isCurrent && !isSubscriptionExpired
                     ? "bg-green-500/15 text-green-400 cursor-default"
+                    : isUpgrading(plan.id)
+                    ? `bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:opacity-90 hover:shadow-lg shadow-amber-500/20`
                     : plan.popular
                     ? `bg-gradient-to-r ${plan.color} text-white hover:opacity-90 hover:shadow-lg ${plan.shadow}`
                     : "glass-btn text-white hover:bg-white/12"
                 } disabled:opacity-50`}
               >
-                {isCurrent ? "Current Plan" : "Subscribe Now"}
+                {isCurrent && !isSubscriptionExpired
+                  ? "Current Plan"
+                  : isCurrent && isSubscriptionExpired
+                  ? "Renew Now"
+                  : isUpgrading(plan.id)
+                  ? "Upgrade"
+                  : "Subscribe Now"}
               </button>
             </motion.div>
           );
@@ -298,6 +305,7 @@ export function Subscription() {
           planPrice={paymentPlan.price}
           onClose={() => setPaymentPlan(null)}
           onSuccess={handlePaymentSuccess}
+          isUpgrade={!!isUpgrading(paymentPlan.id)}
         />
       )}
     </div>
