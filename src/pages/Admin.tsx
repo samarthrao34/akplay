@@ -18,14 +18,24 @@ import {
   Video,
   MessageSquare,
   CloudUpload,
+  CreditCard,
+  Bell,
+  Send,
+  Search,
+  UserCheck,
+  Clock,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { useSiteConfig, VideoEntry, CommunityPost, TextEntry } from "../context/SiteContext";
+import { useAuth, User as AppUser } from "../context/AuthContext";
 
-const ADMIN_USERNAME = "Sam@ADMIN";
-const ADMIN_PASSWORD = "S@ADMIN";
+const ADMIN_CREDENTIALS = [
+  { username: "Sam@ADMIN", password: "S@ADMIN" },
+  { username: "Kundan@ADMIN", password: "K@ADMIN" },
+  { username: "Amar@ADMIN", password: "A@ADMIN" },
+];
 
-type Tab = "overview" | "videos" | "texts" | "community";
+type Tab = "overview" | "videos" | "texts" | "community" | "users" | "notifications";
 
 export function Admin() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -36,15 +46,27 @@ export function Admin() {
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [saveNotif, setSaveNotif] = useState("");
   const [publishing, setPublishing] = useState(false);
+  const [searchUser, setSearchUser] = useState("");
+  const [notifTitle, setNotifTitle] = useState("");
+  const [notifMessage, setNotifMessage] = useState("");
+  const [notifIcon, setNotifIcon] = useState("🎬");
+  const [notifTarget, setNotifTarget] = useState<"all" | string>("all");
+  const [notifSent, setNotifSent] = useState(false);
 
   // Use shared site context instead of local state
   const { videos, texts, communityPosts, setVideos, setTexts, setCommunityPosts, saveToServer } = useSiteConfig();
+  const { getAllUsers, addNotificationForUser, addNotificationForAll } = useAuth();
+
+  const allUsers = getAllUsers();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
+    const validCred = ADMIN_CREDENTIALS.find(
+      (c) => c.username === username && c.password === password
+    );
+    if (validCred) {
       setIsLoggedIn(true);
       setLoginError("");
     } else {
@@ -128,6 +150,8 @@ export function Admin() {
     { id: "videos", label: "Videos", icon: Video },
     { id: "texts", label: "Text Content", icon: Type },
     { id: "community", label: "Community Posts", icon: MessageSquare },
+    { id: "users", label: "Users & Payments", icon: CreditCard },
+    { id: "notifications", label: "Send Notifications", icon: Bell },
   ];
 
   // LOGIN SCREEN
@@ -276,6 +300,9 @@ export function Admin() {
               { label: "Total Videos", value: videos.length.toString(), icon: Video, color: "text-blue-400" },
               { label: "Community Posts", value: communityPosts.length.toString(), icon: MessageSquare, color: "text-green-400" },
               { label: "Text Entries", value: texts.length.toString(), icon: Type, color: "text-yellow-400" },
+              { label: "Total Users", value: allUsers.length.toString(), icon: Users, color: "text-purple-400" },
+              { label: "Active Subscribers", value: allUsers.filter((u) => u.subscription).length.toString(), icon: UserCheck, color: "text-emerald-400" },
+              { label: "Total Payments", value: allUsers.reduce((acc, u) => acc + (u.paymentHistory?.length || 0), 0).toString(), icon: CreditCard, color: "text-orange-400" },
             ].map((stat, i) => (
               <div key={i} className="glass-card rounded-3xl p-6 flex items-center justify-between">
                 <div>
@@ -563,6 +590,266 @@ export function Admin() {
               <p className="text-gray-400">No community posts yet. Click "New Post" to create one.</p>
             </div>
           )}
+        </motion.div>
+      )}
+
+      {/* TAB: Users & Payments */}
+      {activeTab === "users" && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <h2 className="text-xl font-bold">Users & Payment Tracking</h2>
+            <div className="relative max-w-xs w-full">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+              <input
+                type="text"
+                value={searchUser}
+                onChange={(e) => setSearchUser(e.target.value)}
+                placeholder="Search by name or email..."
+                className="w-full glass-input rounded-xl pl-10 pr-4 py-2.5 text-sm text-white focus:outline-none"
+              />
+            </div>
+          </div>
+
+          {/* Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {[
+              { label: "Total Users", value: allUsers.length.toString(), icon: Users, color: "text-blue-400" },
+              { label: "Active Subscribers", value: allUsers.filter((u) => u.subscription).length.toString(), icon: UserCheck, color: "text-green-400" },
+              { label: "Total Payments", value: allUsers.reduce((acc, u) => acc + (u.paymentHistory?.length || 0), 0).toString(), icon: CreditCard, color: "text-yellow-400" },
+              { label: "Expired/Free", value: allUsers.filter((u) => !u.subscription).length.toString(), icon: Clock, color: "text-red-400" },
+            ].map((stat, i) => (
+              <div key={i} className="glass-card rounded-2xl p-5 flex items-center justify-between">
+                <div>
+                  <p className="text-gray-400 text-xs font-medium mb-1">{stat.label}</p>
+                  <h3 className="text-2xl font-extrabold">{stat.value}</h3>
+                </div>
+                <div className={`p-3 rounded-xl bg-white/5 ${stat.color}`}>
+                  <stat.icon className="w-6 h-6" />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Users List */}
+          <div className="space-y-4">
+            {allUsers
+              .filter((u) => {
+                if (!searchUser.trim()) return true;
+                const q = searchUser.toLowerCase();
+                return u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q);
+              })
+              .map((u) => {
+                const isExpired = u.subscriptionExpiry ? new Date() > new Date(u.subscriptionExpiry) : false;
+                const daysLeft = u.subscriptionExpiry
+                  ? Math.max(0, Math.ceil((new Date(u.subscriptionExpiry).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+                  : null;
+                return (
+                  <div key={u.id} className="glass-card rounded-2xl p-5">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#E62429] to-orange-500 flex items-center justify-center text-white font-bold text-lg">
+                          {u.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="text-white font-bold text-sm">{u.name}</p>
+                          <p className="text-gray-400 text-xs">{u.email}</p>
+                          <p className="text-gray-500 text-[10px]">ID: {u.id}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {u.subscription ? (
+                          <div className="text-right">
+                            <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold uppercase ${
+                              isExpired ? "bg-red-500/15 text-red-400" : "bg-green-500/15 text-green-400"
+                            }`}>
+                              {isExpired ? "Expired" : `${u.subscription} Plan`}
+                            </span>
+                            {daysLeft !== null && !isExpired && (
+                              <p className="text-gray-500 text-[10px] mt-1">{daysLeft} days left</p>
+                            )}
+                            {u.subscriptionExpiry && (
+                              <p className="text-gray-600 text-[10px]">Expires: {new Date(u.subscriptionExpiry).toLocaleDateString()}</p>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="inline-block px-3 py-1 rounded-full text-xs font-bold uppercase bg-gray-500/15 text-gray-400">
+                            Free User
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Payment History */}
+                    {u.paymentHistory && u.paymentHistory.length > 0 && (
+                      <div className="mt-4 border-t border-white/5 pt-3">
+                        <p className="text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Payment History</p>
+                        <div className="space-y-2">
+                          {u.paymentHistory.map((p) => (
+                            <div key={p.id} className="flex items-center justify-between bg-white/[0.02] rounded-xl px-4 py-2">
+                              <div className="flex items-center gap-3">
+                                <div className={`w-2 h-2 rounded-full ${p.status === "completed" ? "bg-green-400" : p.status === "pending" ? "bg-yellow-400" : "bg-red-400"}`} />
+                                <div>
+                                  <p className="text-white text-xs font-medium capitalize">{p.plan} Plan</p>
+                                  <p className="text-gray-500 text-[10px]">{new Date(p.date).toLocaleDateString()}</p>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-white text-sm font-bold">{p.amount}</p>
+                                <p className={`text-[10px] font-bold uppercase ${p.status === "completed" ? "text-green-400" : "text-yellow-400"}`}>{p.status}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            {allUsers.length === 0 && (
+              <div className="glass-card rounded-3xl p-12 text-center">
+                <Users className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+                <p className="text-gray-400">No registered users yet.</p>
+              </div>
+            )}
+          </div>
+        </motion.div>
+      )}
+
+      {/* TAB: Send Notifications */}
+      {activeTab === "notifications" && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+          <h2 className="text-xl font-bold">Send Custom Notifications</h2>
+          <p className="text-gray-400 text-sm">Send personalized notifications to engage users and pull them back to watch more content.</p>
+
+          <div className="glass-card rounded-3xl p-6 space-y-5">
+            {/* Target selection */}
+            <div>
+              <label className="block text-xs font-medium text-gray-400 mb-2 uppercase tracking-wider">Send To</label>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => setNotifTarget("all")}
+                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+                    notifTarget === "all" ? "bg-[#E62429] text-white" : "glass-btn text-gray-400"
+                  }`}
+                >
+                  All Users
+                </button>
+                {allUsers.map((u) => (
+                  <button
+                    key={u.id}
+                    onClick={() => setNotifTarget(u.id)}
+                    className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                      notifTarget === u.id ? "bg-[#E62429] text-white" : "glass-btn text-gray-400"
+                    }`}
+                  >
+                    {u.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Notification icon */}
+            <div>
+              <label className="block text-xs font-medium text-gray-400 mb-2 uppercase tracking-wider">Icon</label>
+              <div className="flex gap-2 flex-wrap">
+                {["🎬", "🔥", "⭐", "🎉", "📢", "🎥", "💎", "🆕", "❤️", "🎭"].map((icon) => (
+                  <button
+                    key={icon}
+                    onClick={() => setNotifIcon(icon)}
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg transition-all ${
+                      notifIcon === icon ? "bg-[#E62429]/20 ring-2 ring-[#E62429] scale-110" : "bg-white/5 hover:bg-white/10"
+                    }`}
+                  >
+                    {icon}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Title */}
+            <div>
+              <label className="block text-xs font-medium text-gray-400 mb-2 uppercase tracking-wider">Title</label>
+              <input
+                type="text"
+                value={notifTitle}
+                onChange={(e) => setNotifTitle(e.target.value)}
+                placeholder="e.g. New Movie Alert! 🎬"
+                className="w-full glass-input rounded-xl px-4 py-3 text-sm text-white focus:outline-none"
+              />
+            </div>
+
+            {/* Message */}
+            <div>
+              <label className="block text-xs font-medium text-gray-400 mb-2 uppercase tracking-wider">Message</label>
+              <textarea
+                value={notifMessage}
+                onChange={(e) => setNotifMessage(e.target.value)}
+                rows={3}
+                placeholder="e.g. Hey! We just added a new blockbuster movie. Come watch it now on AKPLAY!"
+                className="w-full glass-input rounded-xl px-4 py-3 text-sm text-white focus:outline-none resize-none"
+              />
+            </div>
+
+            {/* Preview */}
+            {(notifTitle || notifMessage) && (
+              <div className="border border-white/5 rounded-2xl p-4 bg-white/[0.02]">
+                <p className="text-[10px] text-gray-500 font-bold uppercase mb-2">Preview</p>
+                <div className="flex items-start gap-3">
+                  <span className="text-xl">{notifIcon}</span>
+                  <div>
+                    <p className="text-white font-semibold text-sm">{notifTitle || "Title"}</p>
+                    <p className="text-gray-400 text-xs mt-0.5">{notifMessage || "Message"}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Quick Templates */}
+            <div>
+              <p className="text-xs font-medium text-gray-400 mb-2 uppercase tracking-wider">Quick Templates</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {[
+                  { title: "New Content Alert! 🎬", message: "We just uploaded fresh new content on AKPLAY. Don't miss out — come watch now!", icon: "🎬" },
+                  { title: "We Miss You! ❤️", message: "It's been a while since you visited AKPLAY. Come back and discover what's new!", icon: "❤️" },
+                  { title: "Exclusive Release 🔥", message: "A brand new exclusive is now streaming only on AKPLAY. Watch it before everyone else!", icon: "🔥" },
+                  { title: "Your Subscription is Expiring ⏰", message: "Your subscription is about to expire. Renew now to keep enjoying unlimited streaming!", icon: "⏰" },
+                ].map((tmpl, i) => (
+                  <button
+                    key={i}
+                    onClick={() => { setNotifTitle(tmpl.title); setNotifMessage(tmpl.message); setNotifIcon(tmpl.icon); }}
+                    className="glass-btn rounded-xl p-3 text-left hover:bg-white/8 transition-all"
+                  >
+                    <p className="text-white text-xs font-semibold">{tmpl.icon} {tmpl.title}</p>
+                    <p className="text-gray-500 text-[10px] mt-1 line-clamp-1">{tmpl.message}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Send button */}
+            <button
+              onClick={() => {
+                if (!notifTitle.trim() || !notifMessage.trim()) return;
+                if (notifTarget === "all") {
+                  addNotificationForAll(notifTitle.trim(), notifMessage.trim(), notifIcon);
+                } else {
+                  addNotificationForUser(notifTarget, notifTitle.trim(), notifMessage.trim(), notifIcon);
+                }
+                setNotifSent(true);
+                setTimeout(() => setNotifSent(false), 3000);
+                setNotifTitle("");
+                setNotifMessage("");
+              }}
+              disabled={!notifTitle.trim() || !notifMessage.trim()}
+              className="w-full bg-gradient-to-r from-[#E62429] to-orange-500 text-white py-3.5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-[#E62429]/30 transition-all disabled:opacity-50"
+            >
+              {notifSent ? (
+                <><Check className="w-4 h-4" /> Notification Sent!</>
+              ) : (
+                <><Send className="w-4 h-4" /> Send Notification</>
+              )}
+            </button>
+          </div>
         </motion.div>
       )}
     </div>

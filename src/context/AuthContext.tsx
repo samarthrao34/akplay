@@ -6,6 +6,14 @@ export interface UserProfile {
   avatar: string;
 }
 
+export interface PaymentRecord {
+  id: string;
+  plan: string;
+  amount: string;
+  date: string;
+  status: "completed" | "pending" | "failed";
+}
+
 export interface User {
   id: string;
   name: string;
@@ -13,6 +21,9 @@ export interface User {
   password: string;
   profiles: UserProfile[];
   subscription: string | null;
+  subscriptionStartDate: string | null;
+  subscriptionExpiry: string | null;
+  paymentHistory: PaymentRecord[];
 }
 
 interface AuthContextValue {
@@ -29,20 +40,49 @@ interface AuthContextValue {
   updateProfile: (id: string, name: string, avatar: string) => void;
   deleteProfile: (id: string) => void;
   updateUser: (updates: Partial<Pick<User, "name" | "email">>) => void;
-  setSubscription: (plan: string | null) => void;
-  notifications: Notification[];
+  setSubscription: (plan: string | null, amount?: string) => void;
+  changePassword: (currentPassword: string, newPassword: string) => { success: boolean; error?: string };
+  resetPassword: (email: string, newPassword: string) => { success: boolean; error?: string };
+  notifications: AppNotification[];
   markNotificationRead: (id: string) => void;
   clearNotifications: () => void;
   unreadCount: number;
+  isSubscriptionExpired: boolean;
+  daysUntilExpiry: number | null;
+  getAllUsers: () => User[];
+  addNotificationForUser: (userId: string, title: string, message: string, icon: string) => void;
+  addNotificationForAll: (title: string, message: string, icon: string) => void;
 }
 
-export interface Notification {
+export interface AppNotification {
   id: string;
   title: string;
   message: string;
   time: string;
   read: boolean;
   icon: string;
+}
+
+// Email validation - checks for valid format with real domain patterns
+export function isValidEmail(email: string): boolean {
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  if (!emailRegex.test(email)) return false;
+  // Block obviously fake domains
+  const domain = email.split("@")[1].toLowerCase();
+  const blockedPatterns = ["test.com", "fake.com", "example.com", "asdf.com", "abc.com", "xyz.xyz"];
+  if (blockedPatterns.includes(domain)) return false;
+  // Must have valid TLD
+  const tld = domain.split(".").pop() || "";
+  if (tld.length < 2) return false;
+  return true;
+}
+
+// Password validation - minimum 6 chars, at least one letter and one number
+export function isValidPassword(password: string): { valid: boolean; error?: string } {
+  if (password.length < 6) return { valid: false, error: "Password must be at least 6 characters." };
+  if (!/[a-zA-Z]/.test(password)) return { valid: false, error: "Password must contain at least one letter." };
+  if (!/[0-9]/.test(password)) return { valid: false, error: "Password must contain at least one number." };
+  return { valid: true };
 }
 
 const USERS_KEY = "akplay-users";
@@ -66,10 +106,19 @@ const PROFILE_AVATARS = [
 
 export { PROFILE_AVATARS };
 
+function migrateUser(u: any): User {
+  return {
+    ...u,
+    subscriptionStartDate: u.subscriptionStartDate ?? null,
+    subscriptionExpiry: u.subscriptionExpiry ?? null,
+    paymentHistory: u.paymentHistory ?? [],
+  };
+}
+
 function getUsers(): User[] {
   try {
     const raw = localStorage.getItem(USERS_KEY);
-    return raw ? JSON.parse(raw) : [];
+    return raw ? (JSON.parse(raw) as any[]).map(migrateUser) : [];
   } catch { return []; }
 }
 
@@ -92,7 +141,7 @@ function saveSession(session: { userId: string; profileId: string } | null) {
   }
 }
 
-function getDefaultNotifications(): Notification[] {
+function getDefaultNotifications(): AppNotification[] {
   return [
     {
       id: "1",
@@ -121,7 +170,7 @@ function getDefaultNotifications(): Notification[] {
   ];
 }
 
-function loadNotifications(): Notification[] {
+function loadNotifications(): AppNotification[] {
   try {
     const raw = localStorage.getItem(NOTIF_KEY);
     return raw ? JSON.parse(raw) : getDefaultNotifications();
@@ -135,7 +184,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
   const [showProfileSelector, setShowProfileSelector] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>(loadNotifications);
+  const [notifications, setNotifications] = useState<AppNotification[]>(loadNotifications);
 
   // Restore session
   useEffect(() => {
@@ -160,6 +209,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const activeProfile = user?.profiles.find((p) => p.id === activeProfileId) ?? null;
 
   const signup = useCallback((name: string, email: string, password: string) => {
+    if (!isValidEmail(email)) return { success: false, error: "Please enter a valid email address (e.g. name@gmail.com)." };
+    const pwCheck = isValidPassword(password);
+    if (!pwCheck.valid) return { success: false, error: pwCheck.error };
+
     const existing = users.find((u) => u.email.toLowerCase() === email.toLowerCase());
     if (existing) return { success: false, error: "An account with this email already exists." };
 
@@ -177,6 +230,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       password,
       profiles: [defaultProfile],
       subscription: null,
+      subscriptionStartDate: null,
+      subscriptionExpiry: null,
+      paymentHistory: [],
     };
 
     setUsers((prev) => [...prev, newUser]);
@@ -279,10 +335,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
   }, [currentUserId]);
 
-  const setSubscription = useCallback((plan: string | null) => {
+  const setSubscription = useCallback((plan: string | null, amount?: string) => {
     if (!currentUserId) return;
+    const now = new Date();
+    const expiry = new Date(now);
+    expiry.setDate(expiry.getDate() + 30);
+
     setUsers((prev) =>
-      prev.map((u) => (u.id === currentUserId ? { ...u, subscription: plan } : u))
+      prev.map((u) => {
+        if (u.id !== currentUserId) return u;
+        const paymentRecord: PaymentRecord | null = plan && amount ? {
+          id: Date.now().toString(),
+          plan,
+          amount,
+          date: now.toISOString(),
+          status: "completed",
+        } : null;
+        return {
+          ...u,
+          subscription: plan,
+          subscriptionStartDate: plan ? now.toISOString() : null,
+          subscriptionExpiry: plan ? expiry.toISOString() : null,
+          paymentHistory: paymentRecord ? [...(u.paymentHistory || []), paymentRecord] : (u.paymentHistory || []),
+        };
+      })
     );
   }, [currentUserId]);
 
@@ -295,6 +371,128 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const clearNotifications = useCallback(() => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
   }, []);
+
+  const changePassword = useCallback((currentPassword: string, newPassword: string) => {
+    if (!currentUserId) return { success: false, error: "Not logged in." };
+    const u = users.find((u) => u.id === currentUserId);
+    if (!u) return { success: false, error: "User not found." };
+    if (u.password !== currentPassword) return { success: false, error: "Current password is incorrect." };
+    const pwCheck = isValidPassword(newPassword);
+    if (!pwCheck.valid) return { success: false, error: pwCheck.error };
+    setUsers((prev) =>
+      prev.map((usr) => (usr.id === currentUserId ? { ...usr, password: newPassword } : usr))
+    );
+    return { success: true };
+  }, [currentUserId, users]);
+
+  const resetPassword = useCallback((email: string, newPassword: string) => {
+    const u = users.find((u) => u.email.toLowerCase() === email.toLowerCase());
+    if (!u) return { success: false, error: "No account found with this email address." };
+    const pwCheck = isValidPassword(newPassword);
+    if (!pwCheck.valid) return { success: false, error: pwCheck.error };
+    setUsers((prev) =>
+      prev.map((usr) => (usr.email.toLowerCase() === email.toLowerCase() ? { ...usr, password: newPassword } : usr))
+    );
+    return { success: true };
+  }, [users]);
+
+  // Subscription expiry check
+  const isSubscriptionExpired = (() => {
+    if (!user?.subscription || !user?.subscriptionExpiry) return false;
+    return new Date() > new Date(user.subscriptionExpiry);
+  })();
+
+  const daysUntilExpiry = (() => {
+    if (!user?.subscription || !user?.subscriptionExpiry) return null;
+    const diff = new Date(user.subscriptionExpiry).getTime() - Date.now();
+    return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+  })();
+
+  // Auto-expire subscription
+  useEffect(() => {
+    if (user && user.subscription && user.subscriptionExpiry && new Date() > new Date(user.subscriptionExpiry)) {
+      setUsers((prev) =>
+        prev.map((u) => (u.id === user.id ? { ...u, subscription: null } : u))
+      );
+      setNotifications((prev) => [
+        {
+          id: Date.now().toString(),
+          title: "Subscription Expired ⏰",
+          message: "Your subscription has expired. Please renew to continue enjoying AKPLAY content.",
+          time: "Just now",
+          read: false,
+          icon: "⏰",
+        },
+        ...prev,
+      ]);
+    }
+  }, [user]);
+
+  // Admin helpers
+  const getAllUsers = useCallback(() => {
+    return getUsers();
+  }, [users]);
+
+  const addNotificationForUser = useCallback((userId: string, title: string, message: string, icon: string) => {
+    // Store notification per user in localStorage
+    const key = `akplay-notif-${userId}`;
+    const existing = JSON.parse(localStorage.getItem(key) || "[]");
+    const newNotif: AppNotification = {
+      id: Date.now().toString(),
+      title,
+      message,
+      time: "Just now",
+      read: false,
+      icon,
+    };
+    localStorage.setItem(key, JSON.stringify([newNotif, ...existing]));
+    // If this is the current user, add to their notifications
+    if (userId === currentUserId) {
+      setNotifications((prev) => [newNotif, ...prev]);
+    }
+  }, [currentUserId]);
+
+  const addNotificationForAll = useCallback((title: string, message: string, icon: string) => {
+    const allUsers = getUsers();
+    allUsers.forEach((u) => {
+      const key = `akplay-notif-${u.id}`;
+      const existing = JSON.parse(localStorage.getItem(key) || "[]");
+      const newNotif: AppNotification = {
+        id: Date.now().toString() + u.id,
+        title,
+        message,
+        time: "Just now",
+        read: false,
+        icon,
+      };
+      localStorage.setItem(key, JSON.stringify([newNotif, ...existing]));
+    });
+    // Add to current user's notifications too
+    const newNotif: AppNotification = {
+      id: Date.now().toString(),
+      title,
+      message,
+      time: "Just now",
+      read: false,
+      icon,
+    };
+    setNotifications((prev) => [newNotif, ...prev]);
+  }, []);
+
+  // Load user-specific notifications on login
+  useEffect(() => {
+    if (currentUserId) {
+      const key = `akplay-notif-${currentUserId}`;
+      const userNotifs = JSON.parse(localStorage.getItem(key) || "null");
+      if (userNotifs) {
+        setNotifications((prev) => {
+          const existingIds = new Set(prev.map((n) => n.id));
+          const newOnes = userNotifs.filter((n: AppNotification) => !existingIds.has(n.id));
+          return [...newOnes, ...prev];
+        });
+      }
+    }
+  }, [currentUserId]);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
@@ -315,10 +513,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         deleteProfile,
         updateUser,
         setSubscription,
+        changePassword,
+        resetPassword,
         notifications,
         markNotificationRead,
         clearNotifications,
         unreadCount,
+        isSubscriptionExpired,
+        daysUntilExpiry,
+        getAllUsers,
+        addNotificationForUser,
+        addNotificationForAll,
       }}
     >
       {children}

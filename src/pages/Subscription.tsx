@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Check, Sparkles, Zap, Crown } from "lucide-react";
+import { Check, Sparkles, Zap, Crown, User, AlertTriangle } from "lucide-react";
 import { motion } from "motion/react";
 import { useAuth } from "../context/AuthContext";
 import { PaymentModal } from "../components/PaymentModal";
+import { useNavigate } from "react-router-dom";
 
 type PlanId = "basic" | "standard" | "premium";
 
@@ -10,6 +11,7 @@ interface Plan {
   id: PlanId;
   name: string;
   price: string;
+  amount: string;
   period: string;
   icon: typeof Sparkles;
   color: string;
@@ -23,6 +25,7 @@ const PLANS: Plan[] = [
     id: "basic",
     name: "Basic",
     price: "₹9",
+    amount: "₹9",
     period: "/month",
     icon: Zap,
     color: "from-blue-500 to-cyan-400",
@@ -39,6 +42,7 @@ const PLANS: Plan[] = [
     id: "standard",
     name: "Standard",
     price: "₹49",
+    amount: "₹49",
     period: "/month",
     icon: Sparkles,
     color: "from-[#E62429] to-orange-500",
@@ -57,6 +61,7 @@ const PLANS: Plan[] = [
     id: "premium",
     name: "Premium",
     price: "₹99",
+    amount: "₹99",
     period: "/month",
     icon: Crown,
     color: "from-amber-400 to-yellow-500",
@@ -75,10 +80,48 @@ const PLANS: Plan[] = [
 ];
 
 export function Subscription() {
-  const { user, setSubscription, isAuthenticated } = useAuth();
+  const { user, setSubscription, isAuthenticated, activeProfile, isSubscriptionExpired, daysUntilExpiry } = useAuth();
   const [paymentPlan, setPaymentPlan] = useState<Plan | null>(null);
+  const navigate = useNavigate();
 
   const currentPlan = user?.subscription ?? null;
+
+  // Must be logged in and have a profile to subscribe
+  if (!isAuthenticated || !user) {
+    return (
+      <div className="min-h-full bg-[#050505] text-white flex items-center justify-center p-8">
+        <div className="text-center glass-card rounded-3xl p-12 max-w-md">
+          <User className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold mb-2">Sign In Required</h2>
+          <p className="text-gray-400 text-sm mb-6">Please sign in and create a profile before subscribing to a plan.</p>
+          <button
+            onClick={() => navigate("/")}
+            className="bg-gradient-to-r from-[#E62429] to-[#ff333a] text-white px-8 py-3 rounded-2xl font-bold text-sm hover:shadow-lg hover:shadow-[#E62429]/30 transition-all"
+          >
+            Go to Home
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!activeProfile) {
+    return (
+      <div className="min-h-full bg-[#050505] text-white flex items-center justify-center p-8">
+        <div className="text-center glass-card rounded-3xl p-12 max-w-md">
+          <User className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold mb-2">Profile Required</h2>
+          <p className="text-gray-400 text-sm mb-6">Please create a profile first before subscribing to a plan.</p>
+          <button
+            onClick={() => navigate("/account")}
+            className="bg-gradient-to-r from-[#E62429] to-[#ff333a] text-white px-8 py-3 rounded-2xl font-bold text-sm hover:shadow-lg hover:shadow-[#E62429]/30 transition-all"
+          >
+            Go to Account
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const handleSubscribe = (plan: Plan) => {
     setPaymentPlan(plan);
@@ -86,7 +129,7 @@ export function Subscription() {
 
   const handlePaymentSuccess = () => {
     if (paymentPlan) {
-      setSubscription(paymentPlan.id);
+      setSubscription(paymentPlan.id, paymentPlan.amount);
       setPaymentPlan(null);
     }
   };
@@ -107,7 +150,24 @@ export function Subscription() {
         </p>
       </motion.div>
 
-      {currentPlan && (
+      {/* Subscription Expired Warning */}
+      {isSubscriptionExpired && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="max-w-md mx-auto mb-12 glass-card rounded-3xl p-8 text-center border border-red-500/20"
+        >
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-500/15 flex items-center justify-center">
+            <AlertTriangle className="w-8 h-8 text-red-400" />
+          </div>
+          <h3 className="text-xl font-bold mb-2 text-red-400">Subscription Expired</h3>
+          <p className="text-gray-400 text-sm">
+            Your subscription has expired. Please renew to continue enjoying AKPLAY content.
+          </p>
+        </motion.div>
+      )}
+
+      {currentPlan && !isSubscriptionExpired && (
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -118,12 +178,24 @@ export function Subscription() {
           </div>
           <h3 className="text-xl font-bold mb-2">You're Subscribed!</h3>
           <p className="text-gray-400 text-sm">
-            You're now on the{" "}
+            You're on the{" "}
             <span className="text-white font-semibold">
               {PLANS.find((p) => p.id === currentPlan)?.name}
             </span>{" "}
-            plan. Enjoy streaming!
+            plan.
           </p>
+          {daysUntilExpiry !== null && (
+            <p className={`text-sm mt-2 font-medium ${daysUntilExpiry <= 5 ? "text-yellow-400" : "text-gray-500"}`}>
+              {daysUntilExpiry <= 5
+                ? `⚠️ Your subscription expires in ${daysUntilExpiry} day${daysUntilExpiry !== 1 ? "s" : ""}. Renew soon!`
+                : `${daysUntilExpiry} days remaining`}
+            </p>
+          )}
+          {user?.subscriptionExpiry && (
+            <p className="text-gray-600 text-xs mt-1">
+              Expires: {new Date(user.subscriptionExpiry).toLocaleDateString()}
+            </p>
+          )}
           <button
             onClick={() => setSubscription(null)}
             className="mt-6 text-sm text-gray-500 hover:text-white transition-colors"

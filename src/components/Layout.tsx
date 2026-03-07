@@ -3,7 +3,6 @@ import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   Home,
   Film,
-  ShieldCheck,
   Users,
   UserCircle,
   Search,
@@ -45,7 +44,6 @@ export function Layout() {
   const navItems = [
     { icon: Home, label: "Home", path: "/" },
     { icon: Film, label: "Library", path: "/library" },
-    { icon: ShieldCheck, label: "Admin", path: "/admin" },
     { icon: Users, label: "Community", path: "/community" },
     { icon: CreditCard, label: "Subscription", path: "/subscription" },
   ];
@@ -183,7 +181,7 @@ export function Layout() {
       {/* Main Content */}
       <main className="flex-1 flex flex-col overflow-hidden relative">
         {/* Header */}
-        <header className="glass-header h-16 md:h-20 flex items-center justify-between px-4 md:px-8 sticky top-0 z-10">
+        <header className="glass-header h-16 md:h-20 flex items-center justify-between px-4 md:px-8 sticky top-0 z-40">
           {/* Mobile hamburger */}
           <button
             onClick={() => setMobileMenuOpen(true)}

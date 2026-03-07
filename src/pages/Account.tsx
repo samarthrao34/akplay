@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { User, CreditCard, Settings, LogOut, Shield, Plus, Pencil, Trash2, Check, X, Users } from "lucide-react";
+import { User, CreditCard, Settings, LogOut, Shield, Plus, Pencil, Trash2, Check, X, Users, AlertTriangle } from "lucide-react";
 import { motion } from "motion/react";
 import { useAuth, PROFILE_AVATARS } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
@@ -7,7 +7,7 @@ import { useNavigate } from "react-router-dom";
 type TabId = "profile" | "profiles" | "subscription" | "security";
 
 export function Account() {
-  const { user, activeProfile, isAuthenticated, logout, updateUser, updateProfile, addProfile, deleteProfile, setSubscription } = useAuth();
+  const { user, activeProfile, isAuthenticated, logout, updateUser, updateProfile, addProfile, deleteProfile, setSubscription, changePassword, isSubscriptionExpired, daysUntilExpiry } = useAuth();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<TabId>("profile");
   const [editingProfile, setEditingProfile] = useState<string | null>(null);
@@ -318,7 +318,26 @@ export function Account() {
           {activeTab === "subscription" && (
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-card rounded-3xl p-5 md:p-8">
               <h2 className="text-xl font-bold mb-6">Subscription & Billing</h2>
-              {user.subscription ? (
+              {isSubscriptionExpired && (
+                <div className="bg-red-500/5 border border-red-500/20 rounded-2xl p-6 mb-4">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-10 h-10 rounded-xl bg-red-500/15 flex items-center justify-center">
+                      <AlertTriangle className="w-5 h-5 text-red-400" />
+                    </div>
+                    <div>
+                      <p className="text-red-400 font-bold">Subscription Expired</p>
+                      <p className="text-gray-400 text-xs">Please renew your subscription to continue streaming.</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => navigate("/subscription")}
+                    className="mt-3 bg-gradient-to-r from-[#E62429] to-[#ff333a] text-white px-6 py-2.5 rounded-2xl font-bold text-sm hover:shadow-lg hover:shadow-[#E62429]/30 transition-all"
+                  >
+                    Renew Now
+                  </button>
+                </div>
+              )}
+              {user.subscription && !isSubscriptionExpired ? (
                 <div className="space-y-4">
                   <div className="bg-green-500/5 border border-green-500/20 rounded-2xl p-6">
                     <div className="flex items-center gap-3 mb-2">
@@ -330,8 +349,46 @@ export function Account() {
                         <p className="text-gray-400 text-xs">Active subscription</p>
                       </div>
                     </div>
-                    <p className="text-gray-400 text-sm mt-3">Your subscription renews monthly. You can change your plan anytime.</p>
+                    {daysUntilExpiry !== null && (
+                      <p className={`text-sm mt-2 ${daysUntilExpiry <= 5 ? "text-yellow-400 font-medium" : "text-gray-500"}`}>
+                        {daysUntilExpiry <= 5
+                          ? `⚠️ Expires in ${daysUntilExpiry} day${daysUntilExpiry !== 1 ? "s" : ""}!`
+                          : `${daysUntilExpiry} days remaining`}
+                      </p>
+                    )}
+                    {user.subscriptionExpiry && (
+                      <p className="text-gray-600 text-xs mt-1">
+                        Expires: {new Date(user.subscriptionExpiry).toLocaleDateString()}
+                      </p>
+                    )}
+                    {user.subscriptionStartDate && (
+                      <p className="text-gray-600 text-xs">
+                        Started: {new Date(user.subscriptionStartDate).toLocaleDateString()}
+                      </p>
+                    )}
                   </div>
+
+                  {/* Payment History */}
+                  {user.paymentHistory && user.paymentHistory.length > 0 && (
+                    <div className="border-t border-white/5 pt-4">
+                      <p className="text-sm font-bold text-gray-400 mb-3">Payment History</p>
+                      <div className="space-y-2">
+                        {user.paymentHistory.map((p) => (
+                          <div key={p.id} className="flex items-center justify-between bg-white/[0.02] rounded-xl px-4 py-3">
+                            <div>
+                              <p className="text-white text-sm font-medium capitalize">{p.plan} Plan</p>
+                              <p className="text-gray-500 text-xs">{new Date(p.date).toLocaleDateString()}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-white text-sm font-bold">{p.amount}</p>
+                              <p className={`text-[10px] font-bold uppercase ${p.status === "completed" ? "text-green-400" : "text-yellow-400"}`}>{p.status}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="flex gap-3">
                     <button
                       onClick={() => navigate("/subscription")}
@@ -347,7 +404,7 @@ export function Account() {
                     </button>
                   </div>
                 </div>
-              ) : (
+              ) : !isSubscriptionExpired ? (
                 <div className="text-center py-8">
                   <CreditCard className="w-12 h-12 text-gray-600 mx-auto mb-3" />
                   <p className="text-gray-400 text-sm mb-4">You don't have an active subscription.</p>
@@ -358,35 +415,111 @@ export function Account() {
                     View Plans
                   </button>
                 </div>
-              )}
+              ) : null}
             </motion.div>
           )}
 
           {/* Security Tab */}
           {activeTab === "security" && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-card rounded-3xl p-5 md:p-8">
-              <h2 className="text-xl font-bold mb-6">Security & Privacy</h2>
-              <div className="space-y-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-2">Current Password</label>
-                  <input type="password" placeholder="••••••••" className="w-full glass-input rounded-2xl px-4 py-3 text-white focus:outline-none" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-2">New Password</label>
-                  <input type="password" placeholder="••••••••" className="w-full glass-input rounded-2xl px-4 py-3 text-white focus:outline-none" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-2">Confirm New Password</label>
-                  <input type="password" placeholder="••••••••" className="w-full glass-input rounded-2xl px-4 py-3 text-white focus:outline-none" />
-                </div>
-                <button className="bg-gradient-to-r from-[#E62429] to-[#ff333a] hover:shadow-lg hover:shadow-[#E62429]/30 text-white px-8 py-3 rounded-2xl font-bold transition-all">
-                  Update Password
-                </button>
-              </div>
-            </motion.div>
+            <SecurityTab changePassword={changePassword} />
           )}
         </div>
       </div>
     </div>
+  );
+}
+
+function SecurityTab({ changePassword }: { changePassword: (currentPassword: string, newPassword: string) => { success: boolean; error?: string } }) {
+  const [currentPw, setCurrentPw] = useState("");
+  const [newPw, setNewPw] = useState("");
+  const [confirmPw, setConfirmPw] = useState("");
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [showPw, setShowPw] = useState(false);
+
+  const handleChangePassword = () => {
+    setError("");
+    setSuccess("");
+    if (!currentPw || !newPw || !confirmPw) {
+      setError("Please fill all fields.");
+      return;
+    }
+    if (newPw !== confirmPw) {
+      setError("New passwords don't match.");
+      return;
+    }
+    if (newPw.length < 6) {
+      setError("Password must be at least 6 characters.");
+      return;
+    }
+    const result = changePassword(currentPw, newPw);
+    if (!result.success) {
+      setError(result.error || "Failed to change password.");
+      return;
+    }
+    setSuccess("Password changed successfully!");
+    setCurrentPw("");
+    setNewPw("");
+    setConfirmPw("");
+    setTimeout(() => setSuccess(""), 3000);
+  };
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-card rounded-3xl p-5 md:p-8">
+      <h2 className="text-xl font-bold mb-6">Security & Privacy</h2>
+      <div className="space-y-5">
+        <div>
+          <label className="block text-sm font-medium text-gray-400 mb-2">Current Password</label>
+          <input
+            type={showPw ? "text" : "password"}
+            value={currentPw}
+            onChange={(e) => setCurrentPw(e.target.value)}
+            placeholder="Enter current password"
+            className="w-full glass-input rounded-2xl px-4 py-3 text-white focus:outline-none"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-400 mb-2">New Password</label>
+          <input
+            type={showPw ? "text" : "password"}
+            value={newPw}
+            onChange={(e) => setNewPw(e.target.value)}
+            placeholder="Min 6 chars, with letter + number"
+            className="w-full glass-input rounded-2xl px-4 py-3 text-white focus:outline-none"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-400 mb-2">Confirm New Password</label>
+          <input
+            type={showPw ? "text" : "password"}
+            value={confirmPw}
+            onChange={(e) => setConfirmPw(e.target.value)}
+            placeholder="Confirm new password"
+            className="w-full glass-input rounded-2xl px-4 py-3 text-white focus:outline-none"
+          />
+        </div>
+        <label className="flex items-center gap-2 text-sm text-gray-400 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={showPw}
+            onChange={(e) => setShowPw(e.target.checked)}
+            className="rounded"
+          />
+          Show passwords
+        </label>
+        {error && (
+          <p className="text-red-400 text-sm bg-red-500/10 rounded-xl py-2 px-4">{error}</p>
+        )}
+        {success && (
+          <p className="text-green-400 text-sm bg-green-500/10 rounded-xl py-2 px-4">{success}</p>
+        )}
+        <button
+          onClick={handleChangePassword}
+          className="bg-gradient-to-r from-[#E62429] to-[#ff333a] hover:shadow-lg hover:shadow-[#E62429]/30 text-white px-8 py-3 rounded-2xl font-bold transition-all"
+        >
+          Update Password
+        </button>
+      </div>
+    </motion.div>
   );
 }

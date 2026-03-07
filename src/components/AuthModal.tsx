@@ -1,35 +1,90 @@
 import { useState } from "react";
-import { X, Mail, Lock, User, Eye, EyeOff } from "lucide-react";
+import { X, Mail, Lock, User, Eye, EyeOff, KeyRound } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useAuth } from "../context/AuthContext";
+import { isValidEmail, isValidPassword } from "../context/AuthContext";
 
-type AuthTab = "login" | "signup";
+type AuthTab = "login" | "signup" | "forgot";
 
 export function AuthModal({ onClose }: { onClose: () => void }) {
-  const { login, signup } = useAuth();
+  const { login, signup, resetPassword } = useAuth();
   const [tab, setTab] = useState<AuthTab>("login");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setSuccess("");
+
+    if (tab === "forgot") {
+      if (!email.trim()) {
+        setError("Please enter your email address.");
+        return;
+      }
+      if (!isValidEmail(email.trim())) {
+        setError("Please enter a valid email address.");
+        return;
+      }
+      if (!newPassword.trim() || !confirmPassword.trim()) {
+        setError("Please enter and confirm your new password.");
+        return;
+      }
+      if (newPassword !== confirmPassword) {
+        setError("Passwords do not match.");
+        return;
+      }
+      const pwCheck = isValidPassword(newPassword);
+      if (!pwCheck.valid) {
+        setError(pwCheck.error || "Invalid password.");
+        return;
+      }
+      setLoading(true);
+      setTimeout(() => {
+        const result = resetPassword(email.trim(), newPassword);
+        if (!result.success) {
+          setError(result.error || "Reset failed.");
+          setLoading(false);
+          return;
+        }
+        setSuccess("Password reset successfully! You can now sign in.");
+        setLoading(false);
+        setTimeout(() => {
+          setTab("login");
+          setSuccess("");
+          setPassword("");
+          setNewPassword("");
+          setConfirmPassword("");
+        }, 2000);
+      }, 600);
+      return;
+    }
 
     if (!email.trim() || !password.trim()) {
       setError("Please fill in all fields.");
+      return;
+    }
+    if (!isValidEmail(email.trim())) {
+      setError("Please enter a valid email address (e.g. name@gmail.com).");
       return;
     }
     if (tab === "signup" && !name.trim()) {
       setError("Please enter your name.");
       return;
     }
-    if (password.length < 4) {
-      setError("Password must be at least 4 characters.");
-      return;
+    if (tab === "signup") {
+      const pwCheck = isValidPassword(password);
+      if (!pwCheck.valid) {
+        setError(pwCheck.error || "Invalid password.");
+        return;
+      }
     }
 
     setLoading(true);
@@ -90,26 +145,34 @@ export function AuthModal({ onClose }: { onClose: () => void }) {
               <span className="text-white">PLAY</span>
             </span>
             <p className="text-gray-400 text-sm mt-2">
-              {tab === "login" ? "Welcome back! Sign in to continue." : "Create your account to get started."}
+              {tab === "login" ? "Welcome back! Sign in to continue." : tab === "signup" ? "Create your account to get started." : "Reset your password"}
             </p>
           </div>
 
           {/* Tabs */}
-          <div className="flex rounded-2xl bg-white/5 p-1 mb-6">
-            {(["login", "signup"] as AuthTab[]).map((t) => (
-              <button
-                key={t}
-                onClick={() => { setTab(t); setError(""); }}
-                className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${
-                  tab === t
-                    ? "bg-[#E62429] text-white shadow-lg shadow-[#E62429]/30"
-                    : "text-gray-400 hover:text-white"
-                }`}
-              >
-                {t === "login" ? "Sign In" : "Sign Up"}
-              </button>
-            ))}
-          </div>
+          {tab !== "forgot" ? (
+            <div className="flex rounded-2xl bg-white/5 p-1 mb-6">
+              {(["login", "signup"] as AuthTab[]).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => { setTab(t); setError(""); setSuccess(""); }}
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                    tab === t
+                      ? "bg-[#E62429] text-white shadow-lg shadow-[#E62429]/30"
+                      : "text-gray-400 hover:text-white"
+                  }`}
+                >
+                  {t === "login" ? "Sign In" : "Sign Up"}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="flex items-center justify-center mb-6">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#E62429] to-orange-500 flex items-center justify-center">
+                <KeyRound className="w-8 h-8 text-white" />
+              </div>
+            </div>
+          )}
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -135,23 +198,62 @@ export function AuthModal({ onClose }: { onClose: () => void }) {
                 className="w-full glass-input rounded-2xl py-3 pl-11 pr-4 text-sm text-white placeholder:text-gray-500 focus:outline-none"
               />
             </div>
-            <div className="relative">
-              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-              <input
-                type={showPassword ? "text" : "password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Password"
-                className="w-full glass-input rounded-2xl py-3 pl-11 pr-11 text-sm text-white placeholder:text-gray-500 focus:outline-none"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
-              >
-                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
-            </div>
+            {tab !== "forgot" && (
+              <div className="relative">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Password"
+                  className="w-full glass-input rounded-2xl py-3 pl-11 pr-11 text-sm text-white placeholder:text-gray-500 focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            )}
+            {tab === "forgot" && (
+              <>
+                <div className="relative">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="New Password"
+                    className="w-full glass-input rounded-2xl py-3 pl-11 pr-11 text-sm text-white placeholder:text-gray-500 focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                <div className="relative">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Confirm New Password"
+                    className="w-full glass-input rounded-2xl py-3 pl-11 pr-4 text-sm text-white placeholder:text-gray-500 focus:outline-none"
+                  />
+                </div>
+              </>
+            )}
+
+            {tab === "signup" && (
+              <p className="text-gray-500 text-[11px] px-1">
+                Password must be at least 6 characters with at least one letter and one number.
+              </p>
+            )}
 
             {error && (
               <motion.p
@@ -160,6 +262,16 @@ export function AuthModal({ onClose }: { onClose: () => void }) {
                 className="text-red-400 text-sm text-center bg-red-500/10 rounded-xl py-2"
               >
                 {error}
+              </motion.p>
+            )}
+
+            {success && (
+              <motion.p
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-green-400 text-sm text-center bg-green-500/10 rounded-xl py-2"
+              >
+                {success}
               </motion.p>
             )}
 
@@ -175,27 +287,45 @@ export function AuthModal({ onClose }: { onClose: () => void }) {
                 </span>
               ) : tab === "login" ? (
                 "Sign In"
-              ) : (
+              ) : tab === "signup" ? (
                 "Create Account"
+              ) : (
+                "Reset Password"
               )}
             </button>
           </form>
 
-          <p className="text-gray-500 text-xs text-center mt-4">
-            {tab === "login" ? (
-              <>Don't have an account?{" "}
-                <button onClick={() => { setTab("signup"); setError(""); }} className="text-[#E62429] hover:underline font-semibold">
-                  Sign Up
-                </button>
-              </>
-            ) : (
-              <>Already have an account?{" "}
-                <button onClick={() => { setTab("login"); setError(""); }} className="text-[#E62429] hover:underline font-semibold">
-                  Sign In
-                </button>
-              </>
+          <div className="mt-4 space-y-2 text-center">
+            {tab === "login" && (
+              <button
+                onClick={() => { setTab("forgot"); setError(""); setSuccess(""); }}
+                className="text-gray-400 hover:text-[#E62429] text-xs font-medium transition-colors"
+              >
+                Forgot Password?
+              </button>
             )}
-          </p>
+            <p className="text-gray-500 text-xs">
+              {tab === "login" ? (
+                <>Don't have an account?{" "}
+                  <button onClick={() => { setTab("signup"); setError(""); setSuccess(""); }} className="text-[#E62429] hover:underline font-semibold">
+                    Sign Up
+                  </button>
+                </>
+              ) : tab === "signup" ? (
+                <>Already have an account?{" "}
+                  <button onClick={() => { setTab("login"); setError(""); setSuccess(""); }} className="text-[#E62429] hover:underline font-semibold">
+                    Sign In
+                  </button>
+                </>
+              ) : (
+                <>Remember your password?{" "}
+                  <button onClick={() => { setTab("login"); setError(""); setSuccess(""); setNewPassword(""); setConfirmPassword(""); }} className="text-[#E62429] hover:underline font-semibold">
+                    Sign In
+                  </button>
+                </>
+              )}
+            </p>
+          </div>
         </motion.div>
       </motion.div>
     </AnimatePresence>

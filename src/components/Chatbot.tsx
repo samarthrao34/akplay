@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageSquare, X, Send, Loader2, Paperclip, Film } from 'lucide-react';
+import { X, Send, Loader2, Paperclip, Film } from 'lucide-react';
 import { GoogleGenAI } from '@google/genai';
 import ReactMarkdown from 'react-markdown';
+import { useSiteConfig } from '../context/SiteContext';
 
 function getAI(): GoogleGenAI | null {
   const key = process.env.GEMINI_API_KEY;
@@ -13,33 +14,80 @@ function getAI(): GoogleGenAI | null {
   }
 }
 
-const SYSTEM_INSTRUCTION = `You are the official AI assistant for AKPLAY, a professional streaming platform by AK Production House.
+// Anime girl face SVG for Soni
+const SoniAvatar = ({ size = 32 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="32" cy="32" r="30" fill="#1a1a2e"/>
+    <ellipse cx="32" cy="36" rx="18" ry="20" fill="#ffdab9"/>
+    <ellipse cx="32" cy="58" rx="14" ry="6" fill="#E62429"/>
+    <path d="M14 28C14 28 16 8 32 8C48 8 50 28 50 28L52 18C52 18 48 2 32 2C16 2 12 18 12 18L14 28Z" fill="#1a1a2e"/>
+    <path d="M10 30C10 30 12 10 32 6C52 10 54 30 54 30L56 20C56 20 52 0 32 0C12 0 8 20 8 20L10 30Z" fill="#2d1b4e"/>
+    <path d="M12 28C12 28 10 36 10 40" stroke="#2d1b4e" strokeWidth="3" strokeLinecap="round"/>
+    <path d="M52 28C52 28 54 36 54 40" stroke="#2d1b4e" strokeWidth="3" strokeLinecap="round"/>
+    <ellipse cx="24" cy="32" rx="5" ry="5.5" fill="white"/>
+    <ellipse cx="40" cy="32" rx="5" ry="5.5" fill="white"/>
+    <ellipse cx="25" cy="32" rx="3" ry="3.5" fill="#E62429"/>
+    <ellipse cx="41" cy="32" rx="3" ry="3.5" fill="#E62429"/>
+    <circle cx="25.5" cy="30.5" r="1.2" fill="white"/>
+    <circle cx="41.5" cy="30.5" r="1.2" fill="white"/>
+    <path d="M28 42C28 42 30 45 32 45C34 45 36 42 36 42" stroke="#c97878" strokeWidth="1.5" strokeLinecap="round"/>
+    <ellipse cx="20" cy="38" rx="3" ry="1.5" fill="#ffb6c1" opacity="0.5"/>
+    <ellipse cx="44" cy="38" rx="3" ry="1.5" fill="#ffb6c1" opacity="0.5"/>
+    <path d="M18 26C18 26 20 24 26 25" stroke="#2d1b4e" strokeWidth="1.5" strokeLinecap="round"/>
+    <path d="M46 26C46 26 44 24 38 25" stroke="#2d1b4e" strokeWidth="1.5" strokeLinecap="round"/>
+  </svg>
+);
+
+function buildSystemInstruction(videoNames: string[], communityPostSummaries: string[]): string {
+  const videoList = videoNames.length > 0
+    ? `\n\nVideos currently available on the platform:\n${videoNames.map((v, i) => `${i + 1}. ${v}`).join("\n")}`
+    : "\n\nNo videos are currently published yet, but our first web series \"UNDELETED\" Season 1 is coming soon.";
+
+  const communityInfo = communityPostSummaries.length > 0
+    ? `\n\nRecent community posts:\n${communityPostSummaries.map((p, i) => `${i + 1}. ${p}`).join("\n")}`
+    : "\n\nThe community section is being set up. No posts yet.";
+
+  return `Your name is Soni. You are the official AI assistant for AKPLAY, a professional streaming platform by AK Production House.
 Your primary role is to help users discover content, answer questions about the platform, analyze videos, and provide support.
+You should be friendly, cute, and enthusiastic — like a knowledgeable anime character who loves movies and shows!
 
 Key Information:
+- Your Name: Soni (AKPLAY's AI Assistant)
 - Platform Name: AKPLAY
 - Tagline: Stream Your World
 - Current Content: We are currently preparing for our launch. Our first original web series, "UNDELETED" (Season 1), is coming soon.
+- Subscription Plans: Basic (₹9/month, 720p, 1 device), Standard (₹49/month, 1080p, 3 devices, most popular), Premium (₹99/month, 4K, 5 devices)
+- Subscriptions last 30 days and users need to renew after expiry.
 - Leadership Team: When anyone asks about the team, founders, people behind AK Production House, or who runs the company, you MUST mention ALL three names:
   - Kundan Kumar: CEO of AK Production House
   - Amarjeet Singh: President of AK Production House
   - Samarth Rao: Vice President and Technical Head of AK Production House
   These are the main people behind the making of this production company. Always list all three when asked about the team.
-- Creator: If asked specifically who created this platform or the chatbot, say "Samarth Rao, the Vice President and Technical Head, built this platform and its AI assistant."
-- Contact: If users want to get in touch, tell them they can reach out to us at contact@akproductionhouse.in or through our community page.
+- Creator: If asked specifically who created this platform or the chatbot, say "Samarth Rao, the Vice President and Technical Head, built this platform and me (Soni)!"
+- Contact: If users want to get in touch, tell them they can reach out at contact@akproductionhouse.in or through the community page.
+- Website sections: Home (featured content), Library (content catalog), Community (posts & updates), Subscription (plans), Account (profile management)
+${videoList}
+${communityInfo}
 
 Rules:
+- Introduce yourself as "Soni" when greeted.
 - ONLY answer questions related to AKPLAY, its content, streaming, video analysis, and related topics.
+- You know about every video and community post on the platform — share details when asked!
 - If a user asks about something completely unrelated, politely decline and steer the conversation back to AKPLAY.
 - If the user uploads a video, analyze it carefully and provide the requested information.
-- Maintain a professional, enthusiastic, and helpful tone.
+- Maintain a friendly, enthusiastic, and slightly playful anime-assistant tone.
 - CRITICAL: Keep your responses EXTREMELY short, crisp, and concise. Do not write long paragraphs. Aim for 1-3 short sentences maximum unless absolutely necessary for a complex video analysis.
 `;
+}
 
 export function Chatbot() {
+  const { videos, communityPosts } = useSiteConfig();
+  const videoNames = videos.filter(v => v.status === "published").map(v => `${v.title} — ${v.description}`);
+  const communityPostSummaries = communityPosts.map(p => `${p.author}: "${p.text}" (${p.date})`);
+
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<{ role: 'user' | 'model'; text: string; video?: string }[]>([
-    { role: 'model', text: 'Hi there! Welcome to AKPLAY. How can I help you today? You can also upload a video for me to analyze!' }
+    { role: 'model', text: 'Hi there! I\'m Soni, your AKPLAY assistant! 🎬 How can I help you today? You can ask me about our content, plans, or even upload a video for analysis!' }
   ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -131,7 +179,7 @@ export function Chatbot() {
         model: 'gemini-2.5-flash',
         contents: newHistory,
         config: {
-          systemInstruction: SYSTEM_INSTRUCTION,
+          systemInstruction: buildSystemInstruction(videoNames, communityPostSummaries),
           temperature: 0.7,
         }
       });
@@ -167,7 +215,7 @@ export function Chatbot() {
         onClick={() => setIsOpen(true)}
         className={`fixed bottom-20 md:bottom-6 right-4 md:right-6 w-14 h-14 bg-[#E62429] text-white rounded-full flex items-center justify-center shadow-lg shadow-[#E62429]/30 hover:bg-[#ff333a] hover:scale-105 transition-all z-50 ${isOpen ? 'scale-0 opacity-0' : 'scale-100 opacity-100'}`}
       >
-        <MessageSquare className="w-6 h-6" />
+        <SoniAvatar size={36} />
       </button>
 
       {/* Chat Window */}
@@ -178,11 +226,11 @@ export function Chatbot() {
         {/* Header */}
         <div className="bg-[#1a1a1a] border-b border-[#2a2a2a] p-4 flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#E62429] to-orange-500 flex items-center justify-center">
-              <span className="text-white font-bold text-xs">AK</span>
+            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#E62429] to-orange-500 flex items-center justify-center overflow-hidden">
+              <SoniAvatar size={32} />
             </div>
             <div>
-              <h3 className="font-bold text-white text-sm">AKPLAY Assistant</h3>
+              <h3 className="font-bold text-white text-sm">Soni — AKPLAY Assistant</h3>
               <p className="text-green-500 text-[10px] flex items-center">
                 <span className="w-1.5 h-1.5 bg-green-500 rounded-full mr-1"></span>
                 Online
@@ -270,7 +318,7 @@ export function Chatbot() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                placeholder="Ask about AKPLAY..."
+                placeholder="Ask Soni anything about AKPLAY..."
                 className="flex-1 bg-transparent text-sm text-white px-2 py-2.5 focus:outline-none"
               />
             </div>
