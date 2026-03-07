@@ -240,6 +240,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setActiveProfileId(defaultProfile.id);
     saveSession({ userId, profileId: defaultProfile.id });
     setNotifications(getDefaultNotifications());
+
+    // Send welcome email (fire-and-forget)
+    fetch("/api/send-welcome-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, email }),
+    }).catch(() => {});
+
     return { success: true };
   }, [users]);
 
