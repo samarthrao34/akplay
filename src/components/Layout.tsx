@@ -13,16 +13,26 @@ import {
   PanelLeft,
   Menu,
   X,
+  LogIn,
 } from "lucide-react";
 import { Logo } from "./Logo";
 import { Chatbot } from "./Chatbot";
+import { AuthModal } from "./AuthModal";
+import { NotificationPanel } from "./NotificationPanel";
+import { ProfileDropdown } from "./ProfileDropdown";
+import { useAuth } from "../context/AuthContext";
+import { AnimatePresence } from "motion/react";
 
 export function Layout() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { isAuthenticated, activeProfile, unreadCount } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -202,18 +212,70 @@ export function Layout() {
             </form>
           </div>
           <div className="flex items-center space-x-2 md:space-x-5 ml-2 md:ml-8">
-            <button className="relative glass-btn p-2 md:p-2.5 rounded-xl md:rounded-2xl text-gray-400 hover:text-white">
-              <Bell className="w-4 h-4 md:w-5 md:h-5" />
-              <span className="absolute top-1.5 right-1.5 md:top-2 md:right-2 w-2 h-2 bg-[#E62429] rounded-full ring-2 ring-[#050505]"></span>
-            </button>
-            <div className="hidden md:block w-10 h-10 rounded-2xl bg-gradient-to-br from-[#E62429] to-orange-500 p-[2px] shadow-lg shadow-[#E62429]/20">
-              <img
-                src="https://picsum.photos/seed/avatar/100/100"
-                alt="Profile"
-                className="w-full h-full rounded-[14px] border-2 border-[#050505] object-cover"
-                referrerPolicy="no-referrer"
-              />
+            {/* Notification Button */}
+            <div className="relative">
+              <button
+                onClick={() => {
+                  setShowNotifications(!showNotifications);
+                  setShowProfileDropdown(false);
+                }}
+                className="relative glass-btn p-2 md:p-2.5 rounded-xl md:rounded-2xl text-gray-400 hover:text-white"
+              >
+                <Bell className="w-4 h-4 md:w-5 md:h-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 md:top-1 md:right-1 w-4 h-4 md:w-[18px] md:h-[18px] bg-[#E62429] rounded-full ring-2 ring-[#050505] flex items-center justify-center">
+                    <span className="text-[9px] md:text-[10px] font-bold text-white">{unreadCount}</span>
+                  </span>
+                )}
+              </button>
+              <AnimatePresence>
+                {showNotifications && (
+                  <NotificationPanel onClose={() => setShowNotifications(false)} />
+                )}
+              </AnimatePresence>
             </div>
+
+            {/* Profile / Sign In Button */}
+            {isAuthenticated && activeProfile ? (
+              <div className="relative">
+                <button
+                  onClick={() => {
+                    setShowProfileDropdown(!showProfileDropdown);
+                    setShowNotifications(false);
+                  }}
+                  className="hidden md:block w-10 h-10 rounded-2xl bg-gradient-to-br from-[#E62429] to-orange-500 p-[2px] shadow-lg shadow-[#E62429]/20 hover:shadow-xl hover:shadow-[#E62429]/30 transition-all"
+                >
+                  <img
+                    src={activeProfile.avatar}
+                    alt="Profile"
+                    className="w-full h-full rounded-[14px] border-2 border-[#050505] object-cover bg-[#1a1a1a]"
+                  />
+                </button>
+                <AnimatePresence>
+                  {showProfileDropdown && (
+                    <ProfileDropdown onClose={() => setShowProfileDropdown(false)} />
+                  )}
+                </AnimatePresence>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowAuthModal(true)}
+                className="hidden md:flex items-center gap-2 bg-gradient-to-r from-[#E62429] to-[#ff333a] text-white px-4 py-2 md:px-5 md:py-2.5 rounded-2xl font-bold text-xs md:text-sm hover:shadow-lg hover:shadow-[#E62429]/30 transition-all"
+              >
+                <LogIn className="w-4 h-4" />
+                Sign In
+              </button>
+            )}
+
+            {/* Mobile sign in icon */}
+            {!isAuthenticated && (
+              <button
+                onClick={() => setShowAuthModal(true)}
+                className="md:hidden glass-btn p-2 rounded-xl text-gray-400 hover:text-white"
+              >
+                <LogIn className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </header>
 
@@ -247,6 +309,9 @@ export function Layout() {
 
       {/* Chatbot */}
       <Chatbot />
+
+      {/* Auth Modal */}
+      {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} />}
     </div>
   );
 }

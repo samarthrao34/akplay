@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Check, Sparkles, Zap, Crown } from "lucide-react";
 import { motion } from "motion/react";
+import { useAuth } from "../context/AuthContext";
+import { PaymentModal } from "../components/PaymentModal";
 
 type PlanId = "basic" | "standard" | "premium";
 
@@ -20,7 +22,7 @@ const PLANS: Plan[] = [
   {
     id: "basic",
     name: "Basic",
-    price: "₹149",
+    price: "₹9",
     period: "/month",
     icon: Zap,
     color: "from-blue-500 to-cyan-400",
@@ -36,7 +38,7 @@ const PLANS: Plan[] = [
   {
     id: "standard",
     name: "Standard",
-    price: "₹399",
+    price: "₹49",
     period: "/month",
     icon: Sparkles,
     color: "from-[#E62429] to-orange-500",
@@ -54,7 +56,7 @@ const PLANS: Plan[] = [
   {
     id: "premium",
     name: "Premium",
-    price: "₹699",
+    price: "₹99",
     period: "/month",
     icon: Crown,
     color: "from-amber-400 to-yellow-500",
@@ -73,18 +75,20 @@ const PLANS: Plan[] = [
 ];
 
 export function Subscription() {
-  const [selectedPlan, setSelectedPlan] = useState<PlanId | null>(null);
-  const [subscribed, setSubscribed] = useState<PlanId | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const { user, setSubscription, isAuthenticated } = useAuth();
+  const [paymentPlan, setPaymentPlan] = useState<Plan | null>(null);
 
-  const handleSubscribe = (planId: PlanId) => {
-    setSelectedPlan(planId);
-    setIsProcessing(true);
-    // Simulate payment processing
-    setTimeout(() => {
-      setIsProcessing(false);
-      setSubscribed(planId);
-    }, 2000);
+  const currentPlan = user?.subscription ?? null;
+
+  const handleSubscribe = (plan: Plan) => {
+    setPaymentPlan(plan);
+  };
+
+  const handlePaymentSuccess = () => {
+    if (paymentPlan) {
+      setSubscription(paymentPlan.id);
+      setPaymentPlan(null);
+    }
   };
 
   return (
@@ -103,7 +107,7 @@ export function Subscription() {
         </p>
       </motion.div>
 
-      {subscribed && (
+      {currentPlan && (
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -116,15 +120,12 @@ export function Subscription() {
           <p className="text-gray-400 text-sm">
             You're now on the{" "}
             <span className="text-white font-semibold">
-              {PLANS.find((p) => p.id === subscribed)?.name}
+              {PLANS.find((p) => p.id === currentPlan)?.name}
             </span>{" "}
             plan. Enjoy streaming!
           </p>
           <button
-            onClick={() => {
-              setSubscribed(null);
-              setSelectedPlan(null);
-            }}
+            onClick={() => setSubscription(null)}
             className="mt-6 text-sm text-gray-500 hover:text-white transition-colors"
           >
             Change Plan
@@ -135,7 +136,7 @@ export function Subscription() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-6 max-w-5xl mx-auto">
         {PLANS.map((plan, index) => {
           const Icon = plan.icon;
-          const isCurrent = subscribed === plan.id;
+          const isCurrent = currentPlan === plan.id;
           return (
             <motion.div
               key={plan.id}
@@ -178,8 +179,8 @@ export function Subscription() {
               </ul>
 
               <button
-                onClick={() => handleSubscribe(plan.id)}
-                disabled={isProcessing || isCurrent}
+                onClick={() => handleSubscribe(plan)}
+                disabled={isCurrent}
                 className={`w-full py-3.5 rounded-2xl font-bold text-sm transition-all duration-300 ${
                   isCurrent
                     ? "bg-green-500/15 text-green-400 cursor-default"
@@ -188,11 +189,7 @@ export function Subscription() {
                     : "glass-btn text-white hover:bg-white/12"
                 } disabled:opacity-50`}
               >
-                {isCurrent
-                  ? "Current Plan"
-                  : isProcessing && selectedPlan === plan.id
-                  ? "Processing..."
-                  : "Subscribe Now"}
+                {isCurrent ? "Current Plan" : "Subscribe Now"}
               </button>
             </motion.div>
           );
@@ -212,7 +209,7 @@ export function Subscription() {
             { q: "Can I cancel anytime?", a: "Yes, you can cancel your subscription at any time. No hidden fees or penalties." },
             { q: "Is there a free trial?", a: "We offer a 7-day free trial on all plans for new subscribers." },
             { q: "Can I switch plans?", a: "Absolutely! You can upgrade or downgrade your plan anytime from your account settings." },
-            { q: "What payment methods do you accept?", a: "We accept all major credit/debit cards, UPI, and net banking." },
+            { q: "What payment methods do you accept?", a: "We accept UPI payments via Google Pay, Paytm, and PhonePe. Simply scan the QR code or use our UPI ID." },
           ].map((faq, i) => (
             <div key={i} className="glass-card rounded-2xl p-6">
               <h4 className="font-semibold mb-2">{faq.q}</h4>
@@ -221,6 +218,16 @@ export function Subscription() {
           ))}
         </div>
       </motion.div>
+
+      {/* Payment Modal */}
+      {paymentPlan && (
+        <PaymentModal
+          planName={paymentPlan.name}
+          planPrice={paymentPlan.price}
+          onClose={() => setPaymentPlan(null)}
+          onSuccess={handlePaymentSuccess}
+        />
+      )}
     </div>
   );
 }

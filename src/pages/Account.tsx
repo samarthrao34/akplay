@@ -1,6 +1,84 @@
-import { User, CreditCard, Settings, LogOut, Shield } from "lucide-react";
+import { useState } from "react";
+import { User, CreditCard, Settings, LogOut, Shield, Plus, Pencil, Trash2, Check, X, Users } from "lucide-react";
+import { motion } from "motion/react";
+import { useAuth, PROFILE_AVATARS } from "../context/AuthContext";
+import { useNavigate } from "react-router-dom";
+
+type TabId = "profile" | "profiles" | "subscription" | "security";
 
 export function Account() {
+  const { user, activeProfile, isAuthenticated, logout, updateUser, updateProfile, addProfile, deleteProfile, setSubscription } = useAuth();
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<TabId>("profile");
+  const [editingProfile, setEditingProfile] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editAvatar, setEditAvatar] = useState("");
+  const [addingProfile, setAddingProfile] = useState(false);
+  const [newProfileName, setNewProfileName] = useState("");
+  const [newProfileAvatar, setNewProfileAvatar] = useState(PROFILE_AVATARS[0]);
+
+  // Profile settings form state
+  const [firstName, setFirstName] = useState(activeProfile?.name.split(" ")[0] ?? "");
+  const [lastName, setLastName] = useState(activeProfile?.name.split(" ").slice(1).join(" ") ?? "");
+  const [email, setEmail] = useState(user?.email ?? "");
+  const [bio, setBio] = useState("Film enthusiast and aspiring creator.");
+  const [saved, setSaved] = useState(false);
+
+  if (!isAuthenticated || !user || !activeProfile) {
+    return (
+      <div className="min-h-full bg-[#050505] text-white flex items-center justify-center p-8">
+        <div className="text-center glass-card rounded-3xl p-12 max-w-md">
+          <User className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold mb-2">Sign in Required</h2>
+          <p className="text-gray-400 text-sm mb-6">Please sign in to access your account settings.</p>
+          <button
+            onClick={() => navigate("/")}
+            className="bg-gradient-to-r from-[#E62429] to-[#ff333a] text-white px-8 py-3 rounded-2xl font-bold text-sm hover:shadow-lg hover:shadow-[#E62429]/30 transition-all"
+          >
+            Go to Home
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const tabs: { id: TabId; icon: typeof User; label: string }[] = [
+    { id: "profile", icon: User, label: "Profile Settings" },
+    { id: "profiles", icon: Users, label: "Manage Profiles" },
+    { id: "subscription", icon: CreditCard, label: "Subscription & Billing" },
+    { id: "security", icon: Shield, label: "Security & Privacy" },
+  ];
+
+  const handleSaveProfile = () => {
+    const fullName = `${firstName} ${lastName}`.trim();
+    updateProfile(activeProfile.id, fullName, activeProfile.avatar);
+    updateUser({ email });
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  const handleStartEditProfile = (id: string, name: string, avatar: string) => {
+    setEditingProfile(id);
+    setEditName(name);
+    setEditAvatar(avatar);
+  };
+
+  const handleSaveEditProfile = () => {
+    if (editingProfile && editName.trim()) {
+      updateProfile(editingProfile, editName.trim(), editAvatar);
+      setEditingProfile(null);
+    }
+  };
+
+  const handleAddNewProfile = () => {
+    if (newProfileName.trim()) {
+      addProfile(newProfileName.trim(), newProfileAvatar);
+      setNewProfileName("");
+      setNewProfileAvatar(PROFILE_AVATARS[0]);
+      setAddingProfile(false);
+    }
+  };
+
   return (
     <div className="min-h-full bg-[#050505] text-white p-4 md:p-8 pt-6 md:pt-8 max-w-5xl mx-auto">
       <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight mb-6 md:mb-8">
@@ -8,32 +86,27 @@ export function Account() {
       </h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
-        {/* Sidebar */}
+        {/* Sidebar Tabs */}
         <div className="space-y-2">
-          {[
-            { icon: User, label: "Profile Settings", active: true },
-            {
-              icon: CreditCard,
-              label: "Subscription & Billing",
-              active: false,
-            },
-            { icon: Shield, label: "Security & Privacy", active: false },
-            { icon: Settings, label: "Preferences", active: false },
-          ].map((item, i) => (
+          {tabs.map((tab) => (
             <button
-              key={i}
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
               className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-colors text-left ${
-                item.active
+                activeTab === tab.id
                   ? "bg-[#E62429]/12 text-[#E62429] font-bold shadow-lg shadow-[#E62429]/10"
                   : "text-gray-400 hover:bg-white/5 hover:text-white font-medium"
               }`}
             >
-              <item.icon className="w-5 h-5" />
-              <span>{item.label}</span>
+              <tab.icon className="w-5 h-5" />
+              <span>{tab.label}</span>
             </button>
           ))}
           <div className="pt-4 border-t border-white/5 mt-4">
-            <button className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-red-500 hover:bg-red-500/10 transition-colors text-left font-medium">
+            <button
+              onClick={() => { logout(); navigate("/"); }}
+              className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-red-500 hover:bg-red-500/10 transition-colors text-left font-medium"
+            >
               <LogOut className="w-5 h-5" />
               <span>Sign Out</span>
             </button>
@@ -42,83 +115,276 @@ export function Account() {
 
         {/* Content Area */}
         <div className="lg:col-span-2 space-y-8">
-          <div className="glass-card rounded-3xl p-5 md:p-8">
-            <h2 className="text-xl font-bold mb-6">Profile Information</h2>
+          {/* Profile Settings Tab */}
+          {activeTab === "profile" && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-card rounded-3xl p-5 md:p-8">
+              <h2 className="text-xl font-bold mb-6">Profile Information</h2>
 
-            <div className="flex items-center space-x-4 md:space-x-6 mb-6 md:mb-8">
-              <div className="relative">
-                <img
-                  src="https://picsum.photos/seed/avatar/150/150"
-                  alt="Profile"
-                  className="w-24 h-24 rounded-full object-cover border-4 border-white/10"
-                  referrerPolicy="no-referrer"
-                />
-                <button className="absolute bottom-0 right-0 bg-[#E62429] text-white p-2 rounded-full border-2 border-[#141414] hover:bg-[#ff333a] transition-colors">
-                  <User className="w-4 h-4" />
-                </button>
-              </div>
-              <div>
-                <h3 className="text-xl font-bold">John Doe</h3>
-                <p className="text-gray-400 text-sm">john.doe@example.com</p>
-                <span className="inline-block mt-2 bg-yellow-500/20 text-yellow-500 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
-                  Premium Member
-                </span>
-              </div>
-            </div>
-
-            <form className="space-y-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
+              <div className="flex items-center space-x-4 md:space-x-6 mb-6 md:mb-8">
+                <div className="relative">
+                  <img
+                    src={activeProfile.avatar}
+                    alt="Profile"
+                    className="w-24 h-24 rounded-full object-cover border-4 border-white/10 bg-[#1a1a1a]"
+                  />
+                  <button className="absolute bottom-0 right-0 bg-[#E62429] text-white p-2 rounded-full border-2 border-[#141414] hover:bg-[#ff333a] transition-colors">
+                    <User className="w-4 h-4" />
+                  </button>
+                </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-2">
-                    First Name
-                  </label>
+                  <h3 className="text-xl font-bold">{activeProfile.name}</h3>
+                  <p className="text-gray-400 text-sm">{user.email}</p>
+                  {user.subscription && (
+                    <span className="inline-block mt-2 bg-yellow-500/20 text-yellow-500 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
+                      {user.subscription} Plan
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <form className="space-y-6" onSubmit={(e) => e.preventDefault()}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">First Name</label>
+                    <input
+                      type="text"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      className="w-full glass-input rounded-2xl px-4 py-3 text-white focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">Last Name</label>
+                    <input
+                      type="text"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      className="w-full glass-input rounded-2xl px-4 py-3 text-white focus:outline-none"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">Email Address</label>
                   <input
-                    type="text"
-                    defaultValue="John"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     className="w-full glass-input rounded-2xl px-4 py-3 text-white focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-2">
-                    Last Name
-                  </label>
-                  <input
-                    type="text"
-                    defaultValue="Doe"
-                    className="w-full glass-input rounded-2xl px-4 py-3 text-white focus:outline-none"
+                  <label className="block text-sm font-medium text-gray-400 mb-2">Bio</label>
+                  <textarea
+                    rows={4}
+                    value={bio}
+                    onChange={(e) => setBio(e.target.value)}
+                    className="w-full glass-input rounded-2xl px-4 py-3 text-white focus:outline-none resize-none"
                   />
                 </div>
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={handleSaveProfile}
+                    className="bg-gradient-to-r from-[#E62429] to-[#ff333a] hover:shadow-lg hover:shadow-[#E62429]/30 text-white px-8 py-3 rounded-2xl font-bold transition-all flex items-center gap-2"
+                  >
+                    {saved ? <><Check className="w-4 h-4" /> Saved!</> : "Save Changes"}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          )}
+
+          {/* Manage Profiles Tab */}
+          {activeTab === "profiles" && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-card rounded-3xl p-5 md:p-8">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold">Manage Profiles</h2>
+                {user.profiles.length < 5 && (
+                  <button
+                    onClick={() => setAddingProfile(true)}
+                    className="flex items-center gap-2 text-sm font-bold text-[#E62429] hover:text-[#ff333a] transition-colors"
+                  >
+                    <Plus className="w-4 h-4" /> Add Profile
+                  </button>
+                )}
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">
-                  Email Address
-                </label>
-                <input
-                  type="email"
-                  defaultValue="john.doe@example.com"
-                  className="w-full glass-input rounded-2xl px-4 py-3 text-white focus:outline-none"
-                />
+              <p className="text-gray-400 text-sm mb-6">
+                You can have up to 5 profiles. Each profile has its own personalized experience.
+              </p>
+
+              <div className="space-y-4">
+                {user.profiles.map((profile) => (
+                  <div key={profile.id} className="flex items-center gap-4 bg-white/[0.02] rounded-2xl p-4 border border-white/5">
+                    {editingProfile === profile.id ? (
+                      <div className="flex-1">
+                        <div className="flex flex-wrap gap-2 mb-3">
+                          {PROFILE_AVATARS.map((a) => (
+                            <button
+                              key={a}
+                              onClick={() => setEditAvatar(a)}
+                              className={`w-10 h-10 rounded-xl overflow-hidden border-2 transition-all ${
+                                editAvatar === a ? "border-[#E62429] scale-110" : "border-transparent opacity-50 hover:opacity-100"
+                              }`}
+                            >
+                              <img src={a} alt="" className="w-full h-full" />
+                            </button>
+                          ))}
+                        </div>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={editName}
+                            onChange={(e) => setEditName(e.target.value)}
+                            className="flex-1 glass-input rounded-xl px-3 py-2 text-sm text-white focus:outline-none"
+                          />
+                          <button onClick={handleSaveEditProfile} className="p-2 rounded-xl bg-green-500/20 text-green-400 hover:bg-green-500/30">
+                            <Check className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => setEditingProfile(null)} className="p-2 rounded-xl bg-white/5 text-gray-400 hover:bg-white/10">
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <img src={profile.avatar} alt={profile.name} className="w-14 h-14 rounded-xl bg-[#1a1a1a]" />
+                        <div className="flex-1">
+                          <p className="text-white font-semibold text-sm">{profile.name}</p>
+                          {profile.id === activeProfile.id && (
+                            <span className="text-[10px] text-[#E62429] font-bold uppercase">Active Profile</span>
+                          )}
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleStartEditProfile(profile.id, profile.name, profile.avatar)}
+                            className="p-2 rounded-xl bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white transition-colors"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          {user.profiles.length > 1 && (
+                            <button
+                              onClick={() => deleteProfile(profile.id)}
+                              className="p-2 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ))}
+
+                {/* Add new profile inline */}
+                {addingProfile && (
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-white/[0.02] rounded-2xl p-4 border border-[#E62429]/20">
+                    <p className="text-sm font-bold text-white mb-3">New Profile</p>
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {PROFILE_AVATARS.map((a) => (
+                        <button
+                          key={a}
+                          onClick={() => setNewProfileAvatar(a)}
+                          className={`w-10 h-10 rounded-xl overflow-hidden border-2 transition-all ${
+                            newProfileAvatar === a ? "border-[#E62429] scale-110" : "border-transparent opacity-50 hover:opacity-100"
+                          }`}
+                        >
+                          <img src={a} alt="" className="w-full h-full" />
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={newProfileName}
+                        onChange={(e) => setNewProfileName(e.target.value)}
+                        placeholder="Profile Name"
+                        className="flex-1 glass-input rounded-xl px-3 py-2 text-sm text-white focus:outline-none"
+                        autoFocus
+                      />
+                      <button onClick={handleAddNewProfile} className="p-2 rounded-xl bg-[#E62429]/20 text-[#E62429] hover:bg-[#E62429]/30">
+                        <Check className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => setAddingProfile(false)} className="p-2 rounded-xl bg-white/5 text-gray-400 hover:bg-white/10">
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">
-                  Bio
-                </label>
-                <textarea
-                  rows={4}
-                  defaultValue="Film enthusiast and aspiring creator."
-                  className="w-full glass-input rounded-2xl px-4 py-3 text-white focus:outline-none resize-none"
-                />
-              </div>
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  className="bg-gradient-to-r from-[#E62429] to-[#ff333a] hover:shadow-lg hover:shadow-[#E62429]/30 text-white px-8 py-3 rounded-2xl font-bold transition-all"
-                >
-                  Save Changes
+            </motion.div>
+          )}
+
+          {/* Subscription Tab */}
+          {activeTab === "subscription" && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-card rounded-3xl p-5 md:p-8">
+              <h2 className="text-xl font-bold mb-6">Subscription & Billing</h2>
+              {user.subscription ? (
+                <div className="space-y-4">
+                  <div className="bg-green-500/5 border border-green-500/20 rounded-2xl p-6">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="w-10 h-10 rounded-xl bg-green-500/15 flex items-center justify-center">
+                        <Check className="w-5 h-5 text-green-400" />
+                      </div>
+                      <div>
+                        <p className="text-white font-bold capitalize">{user.subscription} Plan</p>
+                        <p className="text-gray-400 text-xs">Active subscription</p>
+                      </div>
+                    </div>
+                    <p className="text-gray-400 text-sm mt-3">Your subscription renews monthly. You can change your plan anytime.</p>
+                  </div>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => navigate("/subscription")}
+                      className="px-6 py-3 rounded-2xl font-bold text-sm glass-btn text-white hover:bg-white/12 transition-all"
+                    >
+                      Change Plan
+                    </button>
+                    <button
+                      onClick={() => setSubscription(null)}
+                      className="px-6 py-3 rounded-2xl font-bold text-sm text-red-400 hover:bg-red-500/10 transition-colors"
+                    >
+                      Cancel Subscription
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <CreditCard className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+                  <p className="text-gray-400 text-sm mb-4">You don't have an active subscription.</p>
+                  <button
+                    onClick={() => navigate("/subscription")}
+                    className="bg-gradient-to-r from-[#E62429] to-[#ff333a] text-white px-8 py-3 rounded-2xl font-bold text-sm hover:shadow-lg hover:shadow-[#E62429]/30 transition-all"
+                  >
+                    View Plans
+                  </button>
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* Security Tab */}
+          {activeTab === "security" && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-card rounded-3xl p-5 md:p-8">
+              <h2 className="text-xl font-bold mb-6">Security & Privacy</h2>
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">Current Password</label>
+                  <input type="password" placeholder="••••••••" className="w-full glass-input rounded-2xl px-4 py-3 text-white focus:outline-none" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">New Password</label>
+                  <input type="password" placeholder="••••••••" className="w-full glass-input rounded-2xl px-4 py-3 text-white focus:outline-none" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">Confirm New Password</label>
+                  <input type="password" placeholder="••••••••" className="w-full glass-input rounded-2xl px-4 py-3 text-white focus:outline-none" />
+                </div>
+                <button className="bg-gradient-to-r from-[#E62429] to-[#ff333a] hover:shadow-lg hover:shadow-[#E62429]/30 text-white px-8 py-3 rounded-2xl font-bold transition-all">
+                  Update Password
                 </button>
               </div>
-            </form>
-          </div>
+            </motion.div>
+          )}
         </div>
       </div>
     </div>

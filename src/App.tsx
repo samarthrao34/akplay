@@ -9,15 +9,21 @@ import { Account } from "./pages/Account";
 import { Search } from "./pages/Search";
 import { Subscription } from "./pages/Subscription";
 import { IntroAnimation } from "./components/IntroAnimation";
+import { ProfileSelector } from "./components/ProfileSelector";
 import { SiteProvider } from "./context/SiteContext";
+import { AuthProvider, useAuth } from "./context/AuthContext";
 
-export default function App() {
+function AppContent() {
   const [introDone, setIntroDone] = useState(false);
   const handleIntroDone = useCallback(() => setIntroDone(true), []);
+  const { showProfileSelector, isAuthenticated } = useAuth();
 
   return (
     <>
       {!introDone && <IntroAnimation onFinish={handleIntroDone} />}
+
+      {/* Netflix-style profile selector */}
+      {introDone && isAuthenticated && showProfileSelector && <ProfileSelector />}
 
       <div style={{ opacity: introDone ? 1 : 0, transition: "opacity 0.5s ease" }}>
         <SiteProvider>
@@ -41,4 +47,10 @@ export default function App() {
   );
 }
 
-
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
+  );
+}
