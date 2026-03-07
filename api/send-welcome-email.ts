@@ -18,7 +18,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     secure: true,
     auth: {
       user: 'akplay@akproductionhouse.in',
-      pass: process.env.HOSTINGER_EMAIL_PASSWORD,
+      pass: (process.env.HOSTINGER_EMAIL_PASSWORD || '').trim(),
     },
   });
 
