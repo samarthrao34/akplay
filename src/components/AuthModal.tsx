@@ -156,7 +156,7 @@ export function AuthModal({ onClose }: { onClose: () => void }) {
                 <button
                   key={t}
                   onClick={() => { setTab(t); setError(""); setSuccess(""); }}
-                  className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#1a1a1a] ${
                     tab === t
                       ? "bg-[#E62429] text-white shadow-lg shadow-[#E62429]/30"
                       : "text-gray-400 hover:text-white"
@@ -184,7 +184,8 @@ export function AuthModal({ onClose }: { onClose: () => void }) {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Full Name"
-                  className="w-full glass-input rounded-2xl py-3 pl-11 pr-4 text-sm text-white placeholder:text-gray-500 focus:outline-none"
+                  aria-label="Full Name"
+                  className="w-full glass-input rounded-2xl py-3 pl-11 pr-4 text-sm text-white placeholder:text-gray-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E62429]"
                 />
               </div>
             )}
@@ -195,7 +196,8 @@ export function AuthModal({ onClose }: { onClose: () => void }) {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Email Address"
-                className="w-full glass-input rounded-2xl py-3 pl-11 pr-4 text-sm text-white placeholder:text-gray-500 focus:outline-none"
+                aria-label="Email Address"
+                className="w-full glass-input rounded-2xl py-3 pl-11 pr-4 text-sm text-white placeholder:text-gray-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E62429]"
               />
             </div>
             {tab !== "forgot" && (
@@ -206,12 +208,14 @@ export function AuthModal({ onClose }: { onClose: () => void }) {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Password"
-                  className="w-full glass-input rounded-2xl py-3 pl-11 pr-11 text-sm text-white placeholder:text-gray-500 focus:outline-none"
+                  aria-label="Password"
+                  className="w-full glass-input rounded-2xl py-3 pl-11 pr-11 text-sm text-white placeholder:text-gray-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E62429]"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white rounded-md focus-visible:ring-2 focus-visible:ring-[#E62429]"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -226,12 +230,14 @@ export function AuthModal({ onClose }: { onClose: () => void }) {
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder="New Password"
-                    className="w-full glass-input rounded-2xl py-3 pl-11 pr-11 text-sm text-white placeholder:text-gray-500 focus:outline-none"
+                    aria-label="New Password"
+                    className="w-full glass-input rounded-2xl py-3 pl-11 pr-11 text-sm text-white placeholder:text-gray-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E62429]"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white rounded-md focus-visible:ring-2 focus-visible:ring-[#E62429]"
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -243,7 +249,8 @@ export function AuthModal({ onClose }: { onClose: () => void }) {
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="Confirm New Password"
-                    className="w-full glass-input rounded-2xl py-3 pl-11 pr-4 text-sm text-white placeholder:text-gray-500 focus:outline-none"
+                    aria-label="Confirm New Password"
+                    className="w-full glass-input rounded-2xl py-3 pl-11 pr-4 text-sm text-white placeholder:text-gray-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E62429]"
                   />
                 </div>
               </>
@@ -278,7 +285,7 @@ export function AuthModal({ onClose }: { onClose: () => void }) {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-gradient-to-r from-[#E62429] to-[#ff333a] hover:shadow-lg hover:shadow-[#E62429]/30 text-white py-3.5 rounded-2xl font-bold text-sm transition-all disabled:opacity-50"
+              className="w-full bg-gradient-to-r from-[#E62429] to-[#ff333a] hover:shadow-lg hover:shadow-[#E62429]/30 text-white py-3.5 rounded-2xl font-bold text-sm transition-all disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0a0a]"
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">

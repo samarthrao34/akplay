@@ -203,6 +203,7 @@ export function Chatbot() {
       {/* Floating Button */}
       <button
         onClick={() => setIsOpen(true)}
+        aria-label="Open Chatbot"
         className={`fixed bottom-20 md:bottom-6 right-4 md:right-6 w-14 h-14 bg-[#E62429] text-white rounded-full flex items-center justify-center shadow-lg shadow-[#E62429]/30 hover:bg-[#ff333a] hover:scale-105 transition-all z-50 ${isOpen ? 'scale-0 opacity-0' : 'scale-100 opacity-100'}`}
       >
         <SoniAvatar size={36} />
@@ -229,6 +230,7 @@ export function Chatbot() {
           </div>
           <button
             onClick={() => setIsOpen(false)}
+            aria-label="Close Chatbot"
             className="text-gray-400 hover:text-white transition-colors"
           >
             <X className="w-5 h-5" />
@@ -281,6 +283,7 @@ export function Chatbot() {
               </div>
               <button 
                 onClick={() => setSelectedVideo(null)}
+                aria-label="Remove attached video"
                 className="text-gray-400 hover:text-white ml-2 shrink-0"
               >
                 <X className="w-3.5 h-3.5" />
@@ -291,6 +294,7 @@ export function Chatbot() {
             <div className="flex-1 bg-[#0a0a0a] border border-[#333] rounded-xl flex items-center focus-within:border-[#E62429] transition-colors overflow-hidden">
               <button
                 onClick={() => fileInputRef.current?.click()}
+                aria-label="Attach Video"
                 className="p-2 text-gray-400 hover:text-white transition-colors shrink-0"
                 title="Attach Video"
               >
@@ -314,6 +318,7 @@ export function Chatbot() {
             </div>
             <button
               onClick={handleSend}
+              aria-label="Send message"
               disabled={(!input.trim() && !selectedVideo) || isTyping}
               className="bg-[#E62429] text-white p-2.5 rounded-xl hover:bg-[#ff333a] disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0"
             >
