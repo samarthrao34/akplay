@@ -29,12 +29,6 @@ import { motion } from "motion/react";
 import { useSiteConfig, VideoEntry, CommunityPost, TextEntry } from "../context/SiteContext";
 import { useAuth, User as AppUser } from "../context/AuthContext";
 
-const ADMIN_CREDENTIALS = [
-  { username: "Sam@ADMIN", password: "S@ADMIN" },
-  { username: "Kundan@ADMIN", password: "K@ADMIN" },
-  { username: "Amar@ADMIN", password: "A@ADMIN" },
-];
-
 type Tab = "overview" | "videos" | "texts" | "community" | "users" | "notifications";
 
 export function Admin() {
@@ -43,6 +37,7 @@ export function Admin() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [saveNotif, setSaveNotif] = useState("");
   const [publishing, setPublishing] = useState(false);
@@ -61,16 +56,29 @@ export function Admin() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    const validCred = ADMIN_CREDENTIALS.find(
-      (c) => c.username === username && c.password === password
-    );
-    if (validCred) {
-      setIsLoggedIn(true);
-      setLoginError("");
-    } else {
-      setLoginError("Invalid credentials. Please try again.");
+    setLoginError("");
+    setIsLoading(true);
+
+    try {
+      const response = await fetch('/api/admin-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setIsLoggedIn(true);
+      } else {
+        setLoginError(data.error || "Invalid credentials. Please try again.");
+      }
+    } catch (err) {
+      setLoginError("An error occurred during login. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -218,9 +226,10 @@ export function Admin() {
 
               <button
                 type="submit"
-                className="w-full bg-gradient-to-r from-[#E62429] to-orange-500 text-white py-3.5 rounded-2xl font-bold hover:shadow-lg hover:shadow-[#E62429]/30 transition-all"
+                disabled={isLoading}
+                className="w-full bg-gradient-to-r from-[#E62429] to-orange-500 text-white py-3.5 rounded-2xl font-bold hover:shadow-lg hover:shadow-[#E62429]/30 disabled:opacity-70 disabled:cursor-not-allowed transition-all"
               >
-                Sign In
+                {isLoading ? "Signing In..." : "Sign In"}
               </button>
             </form>
           </div>
@@ -461,8 +470,8 @@ export function Admin() {
 
           {/* Group by section */}
           {Array.from(new Set(texts.map((t) => t.section))).map((section) => (
-            <div key={section} className="glass-card rounded-3xl p-6">
-              <h3 className="text-lg font-bold mb-4 text-[#E62429]">{section}</h3>
+            <div key={section as string} className="glass-card rounded-3xl p-6">
+              <h3 className="text-lg font-bold mb-4 text-[#E62429]">{section as string}</h3>
               <div className="space-y-4">
                 {texts
                   .filter((t) => t.section === section)
