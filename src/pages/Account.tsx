@@ -52,7 +52,6 @@ export function Account() {
   const handleSaveProfile = () => {
     const fullName = `${firstName} ${lastName}`.trim();
     updateProfile(activeProfile.id, fullName, activeProfile.avatar);
-    updateUser({ email });
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
@@ -92,11 +91,10 @@ export function Account() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-colors text-left ${
-                activeTab === tab.id
-                  ? "bg-[#E62429]/12 text-[#E62429] font-bold shadow-lg shadow-[#E62429]/10"
-                  : "text-gray-400 hover:bg-white/5 hover:text-white font-medium"
-              }`}
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-colors text-left ${activeTab === tab.id
+                ? "bg-[#E62429]/12 text-[#E62429] font-bold shadow-lg shadow-[#E62429]/10"
+                : "text-gray-400 hover:bg-white/5 hover:text-white font-medium"
+                }`}
             >
               <tab.icon className="w-5 h-5" />
               <span>{tab.label}</span>
@@ -222,9 +220,8 @@ export function Account() {
                             <button
                               key={a}
                               onClick={() => setEditAvatar(a)}
-                              className={`w-10 h-10 rounded-xl overflow-hidden border-2 transition-all ${
-                                editAvatar === a ? "border-[#E62429] scale-110" : "border-transparent opacity-50 hover:opacity-100"
-                              }`}
+                              className={`w-10 h-10 rounded-xl overflow-hidden border-2 transition-all ${editAvatar === a ? "border-[#E62429] scale-110" : "border-transparent opacity-50 hover:opacity-100"
+                                }`}
                             >
                               <img src={a} alt="" className="w-full h-full" />
                             </button>
@@ -284,9 +281,8 @@ export function Account() {
                         <button
                           key={a}
                           onClick={() => setNewProfileAvatar(a)}
-                          className={`w-10 h-10 rounded-xl overflow-hidden border-2 transition-all ${
-                            newProfileAvatar === a ? "border-[#E62429] scale-110" : "border-transparent opacity-50 hover:opacity-100"
-                          }`}
+                          className={`w-10 h-10 rounded-xl overflow-hidden border-2 transition-all ${newProfileAvatar === a ? "border-[#E62429] scale-110" : "border-transparent opacity-50 hover:opacity-100"
+                            }`}
                         >
                           <img src={a} alt="" className="w-full h-full" />
                         </button>
@@ -429,7 +425,7 @@ export function Account() {
   );
 }
 
-function SecurityTab({ changePassword }: { changePassword: (currentPassword: string, newPassword: string) => { success: boolean; error?: string } }) {
+function SecurityTab({ changePassword }: { changePassword: (currentPassword: string, newPassword: string) => Promise<{ success: boolean; error?: string }> }) {
   const [currentPw, setCurrentPw] = useState("");
   const [newPw, setNewPw] = useState("");
   const [confirmPw, setConfirmPw] = useState("");
@@ -437,7 +433,7 @@ function SecurityTab({ changePassword }: { changePassword: (currentPassword: str
   const [success, setSuccess] = useState("");
   const [showPw, setShowPw] = useState(false);
 
-  const handleChangePassword = () => {
+  const handleChangePassword = async () => {
     setError("");
     setSuccess("");
     if (!currentPw || !newPw || !confirmPw) {
@@ -452,7 +448,7 @@ function SecurityTab({ changePassword }: { changePassword: (currentPassword: str
       setError("Password must be at least 6 characters.");
       return;
     }
-    const result = changePassword(currentPw, newPw);
+    const result = await changePassword(currentPw, newPw);
     if (!result.success) {
       setError(result.error || "Failed to change password.");
       return;
@@ -519,6 +515,19 @@ function SecurityTab({ changePassword }: { changePassword: (currentPassword: str
         >
           Update Password
         </button>
+
+        <div className="pt-6 border-t border-white/5 mt-6">
+          <h3 className="text-lg font-bold mb-4">Multi-Factor Authentication (MFA)</h3>
+          <p className="text-sm text-gray-400 mb-4">
+            Add an extra layer of security to your account. To enable MFA, please ensure it is turned on in your Firebase Console, then contact support to enroll your device.
+          </p>
+          <button
+            onClick={() => alert("MFA Enrollment flow would trigger here. Make sure MFA is enabled in Firebase Authentication settings first.")}
+            className="bg-white/5 hover:bg-white/10 text-white px-8 py-3 rounded-2xl font-bold transition-all border border-white/10"
+          >
+            Enable 2-Step Verification
+          </button>
+        </div>
       </div>
     </motion.div>
   );

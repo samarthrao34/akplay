@@ -19,7 +19,7 @@ export function AuthModal({ onClose }: { onClose: () => void }) {
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setSuccess("");
@@ -33,37 +33,20 @@ export function AuthModal({ onClose }: { onClose: () => void }) {
         setError("Please enter a valid email address.");
         return;
       }
-      if (!newPassword.trim() || !confirmPassword.trim()) {
-        setError("Please enter and confirm your new password.");
-        return;
-      }
-      if (newPassword !== confirmPassword) {
-        setError("Passwords do not match.");
-        return;
-      }
-      const pwCheck = isValidPassword(newPassword);
-      if (!pwCheck.valid) {
-        setError(pwCheck.error || "Invalid password.");
-        return;
-      }
       setLoading(true);
-      setTimeout(() => {
-        const result = resetPassword(email.trim(), newPassword);
-        if (!result.success) {
-          setError(result.error || "Reset failed.");
-          setLoading(false);
-          return;
-        }
-        setSuccess("Password reset successfully! You can now sign in.");
+      const result = await resetPassword(email.trim());
+      if (!result.success) {
+        setError(result.error || "Reset failed.");
         setLoading(false);
-        setTimeout(() => {
-          setTab("login");
-          setSuccess("");
-          setPassword("");
-          setNewPassword("");
-          setConfirmPassword("");
-        }, 2000);
-      }, 600);
+        return;
+      }
+      setSuccess("Password reset successfully! Check your email.");
+      setLoading(false);
+      setTimeout(() => {
+        setTab("login");
+        setSuccess("");
+        setPassword("");
+      }, 2000);
       return;
     }
 
@@ -88,25 +71,23 @@ export function AuthModal({ onClose }: { onClose: () => void }) {
     }
 
     setLoading(true);
-    setTimeout(() => {
-      if (tab === "signup") {
-        const result = signup(name.trim(), email.trim(), password);
-        if (!result.success) {
-          setError(result.error || "Signup failed.");
-          setLoading(false);
-          return;
-        }
-      } else {
-        const result = login(email.trim(), password);
-        if (!result.success) {
-          setError(result.error || "Login failed.");
-          setLoading(false);
-          return;
-        }
+    if (tab === "signup") {
+      const result = await signup(name.trim(), email.trim(), password);
+      if (!result.success) {
+        setError(result.error || "Signup failed.");
+        setLoading(false);
+        return;
       }
-      setLoading(false);
-      onClose();
-    }, 600);
+    } else {
+      const result = await login(email.trim(), password);
+      if (!result.success) {
+        setError(result.error || "Login failed.");
+        setLoading(false);
+        return;
+      }
+    }
+    setLoading(false);
+    onClose();
   };
 
   return (
@@ -156,11 +137,10 @@ export function AuthModal({ onClose }: { onClose: () => void }) {
                 <button
                   key={t}
                   onClick={() => { setTab(t); setError(""); setSuccess(""); }}
-                  className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${
-                    tab === t
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${tab === t
                       ? "bg-[#E62429] text-white shadow-lg shadow-[#E62429]/30"
                       : "text-gray-400 hover:text-white"
-                  }`}
+                    }`}
                 >
                   {t === "login" ? "Sign In" : "Sign Up"}
                 </button>
@@ -219,33 +199,9 @@ export function AuthModal({ onClose }: { onClose: () => void }) {
             )}
             {tab === "forgot" && (
               <>
-                <div className="relative">
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="New Password"
-                    className="w-full glass-input rounded-2xl py-3 pl-11 pr-11 text-sm text-white placeholder:text-gray-500 focus:outline-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-                <div className="relative">
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Confirm New Password"
-                    className="w-full glass-input rounded-2xl py-3 pl-11 pr-4 text-sm text-white placeholder:text-gray-500 focus:outline-none"
-                  />
-                </div>
+                <p className="text-sm text-gray-400 text-center mb-4">
+                  We'll send you an email with a link to reset your password.
+                </p>
               </>
             )}
 

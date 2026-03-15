@@ -1,4 +1,30 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+  sendPasswordResetEmail,
+  updatePassword,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  User as FirebaseUser
+} from "firebase/auth";
+import {
+  doc,
+  setDoc,
+  getDoc,
+  collection,
+  query,
+  where,
+  onSnapshot,
+  getDocs,
+  updateDoc,
+  addDoc,
+  serverTimestamp,
+  orderBy
+} from "firebase/firestore";
+import { auth, db } from "../lib/firebase";
 
 export interface UserProfile {
   id: string;
@@ -18,40 +44,12 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  password: string;
   profiles: UserProfile[];
   subscription: string | null;
   subscriptionStartDate: string | null;
   subscriptionExpiry: string | null;
   paymentHistory: PaymentRecord[];
-}
-
-interface AuthContextValue {
-  user: User | null;
-  activeProfile: UserProfile | null;
-  isAuthenticated: boolean;
-  showProfileSelector: boolean;
-  signup: (name: string, email: string, password: string) => { success: boolean; error?: string };
-  login: (email: string, password: string) => { success: boolean; error?: string };
-  logout: () => void;
-  selectProfile: (profileId: string) => void;
-  setShowProfileSelector: (show: boolean) => void;
-  addProfile: (name: string, avatar: string) => boolean;
-  updateProfile: (id: string, name: string, avatar: string) => void;
-  deleteProfile: (id: string) => void;
-  updateUser: (updates: Partial<Pick<User, "name" | "email">>) => void;
-  setSubscription: (plan: string | null, amount?: string) => void;
-  changePassword: (currentPassword: string, newPassword: string) => { success: boolean; error?: string };
-  resetPassword: (email: string, newPassword: string) => { success: boolean; error?: string };
-  notifications: AppNotification[];
-  markNotificationRead: (id: string) => void;
-  clearNotifications: () => void;
-  unreadCount: number;
-  isSubscriptionExpired: boolean;
-  daysUntilExpiry: number | null;
-  getAllUsers: () => User[];
-  addNotificationForUser: (userId: string, title: string, message: string, icon: string) => void;
-  addNotificationForAll: (title: string, message: string, icon: string) => void;
+  isAdmin?: boolean;
 }
 
 export interface AppNotification {
@@ -61,17 +59,44 @@ export interface AppNotification {
   time: string;
   read: boolean;
   icon: string;
+  createdAt?: any;
+}
+
+interface AuthContextValue {
+  user: User | null;
+  activeProfile: UserProfile | null;
+  isAuthenticated: boolean;
+  showProfileSelector: boolean;
+  signup: (name: string, email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  logout: () => Promise<void>;
+  selectProfile: (profileId: string) => void;
+  setShowProfileSelector: (show: boolean) => void;
+  addProfile: (name: string, avatar: string) => Promise<boolean>;
+  updateProfile: (id: string, name: string, avatar: string) => Promise<void>;
+  deleteProfile: (id: string) => Promise<void>;
+  updateUser: (updates: Partial<Pick<User, "name">>) => Promise<void>;
+  setSubscription: (plan: string | null, amount?: string) => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
+  resetPassword: (email: string) => Promise<{ success: boolean; error?: string }>;
+  notifications: AppNotification[];
+  markNotificationRead: (id: string) => Promise<void>;
+  clearNotifications: () => Promise<void>;
+  unreadCount: number;
+  isSubscriptionExpired: boolean;
+  daysUntilExpiry: number | null;
+  getAllUsers: () => Promise<User[]>;
+  addNotificationForUser: (userId: string, title: string, message: string, icon: string) => Promise<void>;
+  addNotificationForAll: (title: string, message: string, icon: string) => Promise<void>;
 }
 
 // Email validation - checks for valid format with real domain patterns
 export function isValidEmail(email: string): boolean {
   const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
   if (!emailRegex.test(email)) return false;
-  // Block obviously fake domains
   const domain = email.split("@")[1].toLowerCase();
   const blockedPatterns = ["test.com", "fake.com", "example.com", "asdf.com", "abc.com", "xyz.xyz"];
   if (blockedPatterns.includes(domain)) return false;
-  // Must have valid TLD
   const tld = domain.split(".").pop() || "";
   if (tld.length < 2) return false;
   return true;
@@ -85,11 +110,9 @@ export function isValidPassword(password: string): { valid: boolean; error?: str
   return { valid: true };
 }
 
-const USERS_KEY = "akplay-users";
-const SESSION_KEY = "akplay-session";
-const NOTIF_KEY = "akplay-notifications";
+const SESSION_KEY = "akplay-profile-session";
 
-const PROFILE_AVATARS = [
+export const PROFILE_AVATARS = [
   "https://api.dicebear.com/9.x/bottts-neutral/svg?seed=Felix",
   "https://api.dicebear.com/9.x/bottts-neutral/svg?seed=Aneka",
   "https://api.dicebear.com/9.x/bottts-neutral/svg?seed=Bubba",
@@ -104,420 +127,376 @@ const PROFILE_AVATARS = [
   "https://api.dicebear.com/9.x/bottts-neutral/svg?seed=Shadow",
 ];
 
-export { PROFILE_AVATARS };
-
-function migrateUser(u: any): User {
-  return {
-    ...u,
-    subscriptionStartDate: u.subscriptionStartDate ?? null,
-    subscriptionExpiry: u.subscriptionExpiry ?? null,
-    paymentHistory: u.paymentHistory ?? [],
-  };
-}
-
-function getUsers(): User[] {
+function getProfileSession(): string | null {
   try {
-    const raw = localStorage.getItem(USERS_KEY);
-    return raw ? (JSON.parse(raw) as any[]).map(migrateUser) : [];
-  } catch { return []; }
-}
-
-function saveUsers(users: User[]) {
-  localStorage.setItem(USERS_KEY, JSON.stringify(users));
-}
-
-function getSession(): { userId: string; profileId: string } | null {
-  try {
-    const raw = localStorage.getItem(SESSION_KEY);
-    return raw ? JSON.parse(raw) : null;
+    return localStorage.getItem(SESSION_KEY);
   } catch { return null; }
 }
 
-function saveSession(session: { userId: string; profileId: string } | null) {
-  if (session) {
-    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+function saveProfileSession(profileId: string | null) {
+  if (profileId) {
+    localStorage.setItem(SESSION_KEY, profileId);
   } else {
     localStorage.removeItem(SESSION_KEY);
   }
 }
 
-function getDefaultNotifications(): AppNotification[] {
-  return [
-    {
-      id: "1",
-      title: "Welcome to AKPLAY! 🎬",
-      message: "Start exploring our content library and enjoy streaming.",
-      time: "Just now",
-      read: false,
-      icon: "🎉",
-    },
-    {
-      id: "2",
-      title: "UNDELETED Season 1",
-      message: "Our first original web series is coming soon. Stay tuned!",
-      time: "1 hour ago",
-      read: false,
-      icon: "🎥",
-    },
-    {
-      id: "3",
-      title: "New Features Available",
-      message: "Check out our subscription plans for the best streaming experience.",
-      time: "2 hours ago",
-      read: false,
-      icon: "✨",
-    },
-  ];
-}
-
-function loadNotifications(): AppNotification[] {
-  try {
-    const raw = localStorage.getItem(NOTIF_KEY);
-    return raw ? JSON.parse(raw) : getDefaultNotifications();
-  } catch { return getDefaultNotifications(); }
-}
-
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [users, setUsers] = useState<User[]>(getUsers);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [fbUser, setFbUser] = useState<FirebaseUser | null>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
   const [showProfileSelector, setShowProfileSelector] = useState(false);
-  const [notifications, setNotifications] = useState<AppNotification[]>(loadNotifications);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [loadingInitial, setLoadingInitial] = useState(true);
 
-  // Restore session
+  // Listen to Firebase Auth state changes
   useEffect(() => {
-    const session = getSession();
-    if (session) {
-      const allUsers = getUsers();
-      const u = allUsers.find((u) => u.id === session.userId);
-      if (u) {
-        setCurrentUserId(u.id);
-        setActiveProfileId(session.profileId);
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      setFbUser(user);
+      if (user) {
+        // Fetch user document from Firestore
+        const userDocRef = doc(db, "users", user.uid);
+        const unsubscribeDoc = onSnapshot(userDocRef, (docSnap) => {
+          if (docSnap.exists()) {
+            const data = docSnap.data() as User;
+            setCurrentUser(data);
+
+            // Handle profile selection session
+            const storedProfileId = getProfileSession();
+            if (storedProfileId && data.profiles.find(p => p.id === storedProfileId)) {
+              setActiveProfileId(storedProfileId);
+            } else if (data.profiles.length > 0) {
+              if (data.profiles.length === 1) {
+                setActiveProfileId(data.profiles[0].id);
+                saveProfileSession(data.profiles[0].id);
+              } else if (!activeProfileId) {
+                setShowProfileSelector(true);
+              }
+            }
+          } else {
+            setCurrentUser(null);
+          }
+          setLoadingInitial(false);
+        });
+
+        return () => unsubscribeDoc();
+      } else {
+        setCurrentUser(null);
+        setActiveProfileId(null);
+        setShowProfileSelector(false);
+        setNotifications([]);
+        setLoadingInitial(false);
       }
-    }
+    });
+
+    return unsubscribe;
   }, []);
 
-  // Persist users
-  useEffect(() => { saveUsers(users); }, [users]);
+  // Listen to Notifications from Firestore
+  useEffect(() => {
+    if (!fbUser) return;
 
-  // Persist notifications
-  useEffect(() => { localStorage.setItem(NOTIF_KEY, JSON.stringify(notifications)); }, [notifications]);
+    // We fetch global notifications and user-specific ones
+    const q = query(
+      collection(db, "notifications"),
+      where("targetId", "in", ["all", fbUser.uid]),
+      orderBy("createdAt", "desc")
+    );
 
-  const user = users.find((u) => u.id === currentUserId) ?? null;
-  const activeProfile = user?.profiles.find((p) => p.id === activeProfileId) ?? null;
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const notifs: AppNotification[] = [];
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        notifs.push({
+          id: doc.id,
+          title: data.title,
+          message: data.message,
+          icon: data.icon,
+          read: data.readBy?.includes(fbUser.uid) || false,
+          time: data.createdAt ? new Date(data.createdAt.toDate()).toLocaleDateString() : "Just now",
+        });
+      });
+      setNotifications(notifs);
+    });
 
-  const signup = useCallback((name: string, email: string, password: string) => {
-    if (!isValidEmail(email)) return { success: false, error: "Please enter a valid email address (e.g. name@gmail.com)." };
+    return unsubscribe;
+  }, [fbUser]);
+
+  const activeProfile = currentUser?.profiles.find((p) => p.id === activeProfileId) ?? null;
+
+  const signup = useCallback(async (name: string, email: string, password: string) => {
+    if (!isValidEmail(email)) return { success: false, error: "Please enter a valid email address." };
     const pwCheck = isValidPassword(password);
     if (!pwCheck.valid) return { success: false, error: pwCheck.error };
 
-    const existing = users.find((u) => u.email.toLowerCase() === email.toLowerCase());
-    if (existing) return { success: false, error: "An account with this email already exists." };
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
 
-    const userId = Date.now().toString();
-    const defaultProfile: UserProfile = {
-      id: userId + "-p1",
-      name,
-      avatar: PROFILE_AVATARS[Math.floor(Math.random() * PROFILE_AVATARS.length)],
-    };
+      const defaultProfile: UserProfile = {
+        id: "p1-" + Date.now().toString(),
+        name,
+        avatar: PROFILE_AVATARS[0],
+      };
 
-    const newUser: User = {
-      id: userId,
-      name,
-      email,
-      password,
-      profiles: [defaultProfile],
-      subscription: null,
-      subscriptionStartDate: null,
-      subscriptionExpiry: null,
-      paymentHistory: [],
-    };
+      const newUser: User = {
+        id: user.uid,
+        name,
+        email,
+        profiles: [defaultProfile],
+        subscription: null,
+        subscriptionStartDate: null,
+        subscriptionExpiry: null,
+        paymentHistory: [],
+      };
 
-    setUsers((prev) => [...prev, newUser]);
-    setCurrentUserId(userId);
-    setActiveProfileId(defaultProfile.id);
-    saveSession({ userId, profileId: defaultProfile.id });
-    setNotifications(getDefaultNotifications());
+      await setDoc(doc(db, "users", user.uid), newUser);
+      setActiveProfileId(defaultProfile.id);
+      saveProfileSession(defaultProfile.id);
 
-    // Send welcome email (fire-and-forget)
-    fetch("/api/send-welcome-email", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, type: "signup" }),
-    }).catch(() => {});
+      // Send welcome email (fire-and-forget)
+      fetch("/api/send-welcome-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, type: "signup" }),
+      }).catch(() => { });
 
-    return { success: true };
-  }, [users]);
-
-  const login = useCallback((email: string, password: string) => {
-    const u = users.find(
-      (u) => u.email.toLowerCase() === email.toLowerCase() && u.password === password
-    );
-    if (!u) return { success: false, error: "Invalid email or password." };
-
-    setCurrentUserId(u.id);
-    if (u.profiles.length > 1) {
-      setShowProfileSelector(true);
-      setActiveProfileId(null);
-      saveSession({ userId: u.id, profileId: u.profiles[0].id });
-    } else {
-      setActiveProfileId(u.profiles[0].id);
-      saveSession({ userId: u.id, profileId: u.profiles[0].id });
+      return { success: true };
+    } catch (error: any) {
+      if (error.code === 'auth/email-already-in-use') {
+        return { success: false, error: "An account with this email already exists." };
+      }
+      return { success: false, error: error.message || "Failed to sign up." };
     }
+  }, []);
 
-    // Send welcome-back email (fire-and-forget)
-    fetch("/api/send-welcome-email", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: u.name, email: u.email, type: "login" }),
-    }).catch(() => {});
+  const login = useCallback(async (email: string, password: string) => {
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
 
-    return { success: true };
-  }, [users]);
+      // Welcome back email
+      fetch("/api/send-welcome-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: email.split('@')[0], email, type: "login" }),
+      }).catch(() => { });
 
-  const logout = useCallback(() => {
-    setCurrentUserId(null);
-    setActiveProfileId(null);
-    setShowProfileSelector(false);
-    saveSession(null);
+      return { success: true };
+    } catch (error: any) {
+      return { success: false, error: "Invalid email or password." };
+    }
+  }, []);
+
+  const logout = useCallback(async () => {
+    try {
+      await signOut(auth);
+      saveProfileSession(null);
+    } catch (err) {
+      console.error("Logout failed", err);
+    }
   }, []);
 
   const selectProfile = useCallback((profileId: string) => {
     setActiveProfileId(profileId);
     setShowProfileSelector(false);
-    if (currentUserId) {
-      saveSession({ userId: currentUserId, profileId });
-    }
-  }, [currentUserId]);
+    saveProfileSession(profileId);
+  }, []);
 
-  const addProfile = useCallback((name: string, avatar: string): boolean => {
-    if (!currentUserId) return false;
-    setUsers((prev) =>
-      prev.map((u) => {
-        if (u.id !== currentUserId) return u;
-        if (u.profiles.length >= 5) return u;
-        return {
-          ...u,
-          profiles: [
-            ...u.profiles,
-            { id: Date.now().toString(), name, avatar },
-          ],
-        };
-      })
-    );
+  const addProfile = useCallback(async (name: string, avatar: string): Promise<boolean> => {
+    if (!currentUser) return false;
+    if (currentUser.profiles.length >= 5) return false;
+
+    const newProfile = { id: Date.now().toString(), name, avatar };
+    const updatedProfiles = [...currentUser.profiles, newProfile];
+
+    await updateDoc(doc(db, "users", currentUser.id), {
+      profiles: updatedProfiles
+    });
     return true;
-  }, [currentUserId]);
+  }, [currentUser]);
 
-  const updateProfile = useCallback((id: string, name: string, avatar: string) => {
-    if (!currentUserId) return;
-    setUsers((prev) =>
-      prev.map((u) => {
-        if (u.id !== currentUserId) return u;
-        return {
-          ...u,
-          profiles: u.profiles.map((p) =>
-            p.id === id ? { ...p, name, avatar } : p
-          ),
-        };
-      })
+  const updateProfile = useCallback(async (id: string, name: string, avatar: string) => {
+    if (!currentUser) return;
+    const updatedProfiles = currentUser.profiles.map((p) =>
+      p.id === id ? { ...p, name, avatar } : p
     );
-  }, [currentUserId]);
+    await updateDoc(doc(db, "users", currentUser.id), {
+      profiles: updatedProfiles
+    });
+  }, [currentUser]);
 
-  const deleteProfile = useCallback((id: string) => {
-    if (!currentUserId) return;
-    setUsers((prev) =>
-      prev.map((u) => {
-        if (u.id !== currentUserId) return u;
-        if (u.profiles.length <= 1) return u;
-        return { ...u, profiles: u.profiles.filter((p) => p.id !== id) };
-      })
-    );
-    if (activeProfileId === id) {
-      const u = users.find((u) => u.id === currentUserId);
-      const remaining = u?.profiles.filter((p) => p.id !== id);
-      if (remaining?.length) {
-        setActiveProfileId(remaining[0].id);
-        saveSession({ userId: currentUserId, profileId: remaining[0].id });
-      }
+  const deleteProfile = useCallback(async (id: string) => {
+    if (!currentUser) return;
+    if (currentUser.profiles.length <= 1) return;
+
+    const updatedProfiles = currentUser.profiles.filter((p) => p.id !== id);
+    await updateDoc(doc(db, "users", currentUser.id), {
+      profiles: updatedProfiles
+    });
+
+    if (activeProfileId === id && updatedProfiles.length > 0) {
+      setActiveProfileId(updatedProfiles[0].id);
+      saveProfileSession(updatedProfiles[0].id);
     }
-  }, [currentUserId, activeProfileId, users]);
+  }, [currentUser, activeProfileId]);
 
-  const updateUser = useCallback((updates: Partial<Pick<User, "name" | "email">>) => {
-    if (!currentUserId) return;
-    setUsers((prev) =>
-      prev.map((u) => (u.id === currentUserId ? { ...u, ...updates } : u))
-    );
-  }, [currentUserId]);
+  const updateUser = useCallback(async (updates: Partial<Pick<User, "name">>) => {
+    if (!currentUser) return;
+    await updateDoc(doc(db, "users", currentUser.id), updates);
+  }, [currentUser]);
 
-  const setSubscription = useCallback((plan: string | null, amount?: string) => {
-    if (!currentUserId) return;
+  const setSubscription = useCallback(async (plan: string | null, amount?: string) => {
+    if (!currentUser) return;
     const now = new Date();
     const expiry = new Date(now);
     expiry.setDate(expiry.getDate() + 30);
 
-    setUsers((prev) =>
-      prev.map((u) => {
-        if (u.id !== currentUserId) return u;
-        const paymentRecord: PaymentRecord | null = plan && amount ? {
-          id: Date.now().toString(),
-          plan,
-          amount,
-          date: now.toISOString(),
-          status: "completed",
-        } : null;
-        return {
-          ...u,
-          subscription: plan,
-          subscriptionStartDate: plan ? now.toISOString() : null,
-          subscriptionExpiry: plan ? expiry.toISOString() : null,
-          paymentHistory: paymentRecord ? [...(u.paymentHistory || []), paymentRecord] : (u.paymentHistory || []),
-        };
-      })
-    );
-  }, [currentUserId]);
+    const paymentRecord: PaymentRecord | null = plan && amount ? {
+      id: Date.now().toString(),
+      plan,
+      amount,
+      date: now.toISOString(),
+      status: "completed",
+    } : null;
 
-  const markNotificationRead = useCallback((id: string) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
-    );
-  }, []);
+    const updates: any = {
+      subscription: plan,
+      subscriptionStartDate: plan ? now.toISOString() : null,
+      subscriptionExpiry: plan ? expiry.toISOString() : null,
+    };
 
-  const clearNotifications = useCallback(() => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-  }, []);
+    if (paymentRecord) {
+      updates.paymentHistory = [...(currentUser.paymentHistory || []), paymentRecord];
+    } else if (!plan) {
+      // Free plan fallback
+      updates.paymentHistory = currentUser.paymentHistory || [];
+    }
 
-  const changePassword = useCallback((currentPassword: string, newPassword: string) => {
-    if (!currentUserId) return { success: false, error: "Not logged in." };
-    const u = users.find((u) => u.id === currentUserId);
-    if (!u) return { success: false, error: "User not found." };
-    if (u.password !== currentPassword) return { success: false, error: "Current password is incorrect." };
+    await updateDoc(doc(db, "users", currentUser.id), updates);
+  }, [currentUser]);
+
+  const markNotificationRead = useCallback(async (id: string) => {
+    if (!fbUser) return;
+    const notifRef = doc(db, "notifications", id);
+    try {
+      const snap = await getDoc(notifRef);
+      if (snap.exists()) {
+        const readBy = snap.data().readBy || [];
+        if (!readBy.includes(fbUser.uid)) {
+          await updateDoc(notifRef, {
+            readBy: [...readBy, fbUser.uid]
+          });
+        }
+      }
+    } catch { }
+  }, [fbUser]);
+
+  const clearNotifications = useCallback(async () => {
+    if (!fbUser) return;
+    for (const notif of notifications) {
+      if (!notif.read) {
+        await markNotificationRead(notif.id);
+      }
+    }
+  }, [fbUser, notifications, markNotificationRead]);
+
+  const changePassword = useCallback(async (currentPassword: string, newPassword: string) => {
+    if (!fbUser || !currentUser) return { success: false, error: "Not logged in." };
     const pwCheck = isValidPassword(newPassword);
     if (!pwCheck.valid) return { success: false, error: pwCheck.error };
-    setUsers((prev) =>
-      prev.map((usr) => (usr.id === currentUserId ? { ...usr, password: newPassword } : usr))
-    );
-    return { success: true };
-  }, [currentUserId, users]);
 
-  const resetPassword = useCallback((email: string, newPassword: string) => {
-    const u = users.find((u) => u.email.toLowerCase() === email.toLowerCase());
-    if (!u) return { success: false, error: "No account found with this email address." };
-    const pwCheck = isValidPassword(newPassword);
-    if (!pwCheck.valid) return { success: false, error: pwCheck.error };
-    setUsers((prev) =>
-      prev.map((usr) => (usr.email.toLowerCase() === email.toLowerCase() ? { ...usr, password: newPassword } : usr))
-    );
-    return { success: true };
-  }, [users]);
+    try {
+      const credential = EmailAuthProvider.credential(fbUser.email!, currentPassword);
+      await reauthenticateWithCredential(fbUser, credential);
+      await updatePassword(fbUser, newPassword);
+      return { success: true };
+    } catch (error: any) {
+      return { success: false, error: error.message || "Failed to change password." };
+    }
+  }, [fbUser, currentUser]);
+
+  const resetPassword = useCallback(async (email: string) => {
+    if (!isValidEmail(email)) return { success: false, error: "Invalid email" };
+    try {
+      await sendPasswordResetEmail(auth, email);
+      return { success: true };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  }, []);
 
   // Subscription expiry check
   const isSubscriptionExpired = (() => {
-    if (!user?.subscription || !user?.subscriptionExpiry) return false;
-    return new Date() > new Date(user.subscriptionExpiry);
+    if (!currentUser?.subscription || !currentUser?.subscriptionExpiry) return false;
+    return new Date() > new Date(currentUser.subscriptionExpiry);
   })();
 
   const daysUntilExpiry = (() => {
-    if (!user?.subscription || !user?.subscriptionExpiry) return null;
-    const diff = new Date(user.subscriptionExpiry).getTime() - Date.now();
+    if (!currentUser?.subscription || !currentUser?.subscriptionExpiry) return null;
+    const diff = new Date(currentUser.subscriptionExpiry).getTime() - Date.now();
     return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
   })();
 
   // Auto-expire subscription
   useEffect(() => {
-    if (user && user.subscription && user.subscriptionExpiry && new Date() > new Date(user.subscriptionExpiry)) {
-      setUsers((prev) =>
-        prev.map((u) => (u.id === user.id ? { ...u, subscription: null } : u))
-      );
-      setNotifications((prev) => [
-        {
-          id: Date.now().toString(),
+    if (currentUser && currentUser.subscription && currentUser.subscriptionExpiry && new Date() > new Date(currentUser.subscriptionExpiry)) {
+      // Fire and forget update
+      updateDoc(doc(db, "users", currentUser.id), { subscription: null }).then(() => {
+        addDoc(collection(db, "notifications"), {
+          targetId: currentUser.id,
           title: "Subscription Expired ⏰",
           message: "Your subscription has expired. Please renew to continue enjoying AKPLAY content.",
-          time: "Just now",
-          read: false,
           icon: "⏰",
-        },
-        ...prev,
-      ]);
+          createdAt: serverTimestamp(),
+          readBy: []
+        });
+      }).catch(console.error);
     }
-  }, [user]);
+  }, [currentUser]);
 
   // Admin helpers
-  const getAllUsers = useCallback(() => {
-    return getUsers();
-  }, [users]);
-
-  const addNotificationForUser = useCallback((userId: string, title: string, message: string, icon: string) => {
-    // Store notification per user in localStorage
-    const key = `akplay-notif-${userId}`;
-    const existing = JSON.parse(localStorage.getItem(key) || "[]");
-    const newNotif: AppNotification = {
-      id: Date.now().toString(),
-      title,
-      message,
-      time: "Just now",
-      read: false,
-      icon,
-    };
-    localStorage.setItem(key, JSON.stringify([newNotif, ...existing]));
-    // If this is the current user, add to their notifications
-    if (userId === currentUserId) {
-      setNotifications((prev) => [newNotif, ...prev]);
-    }
-  }, [currentUserId]);
-
-  const addNotificationForAll = useCallback((title: string, message: string, icon: string) => {
-    const allUsers = getUsers();
-    allUsers.forEach((u) => {
-      const key = `akplay-notif-${u.id}`;
-      const existing = JSON.parse(localStorage.getItem(key) || "[]");
-      const newNotif: AppNotification = {
-        id: Date.now().toString() + u.id,
-        title,
-        message,
-        time: "Just now",
-        read: false,
-        icon,
-      };
-      localStorage.setItem(key, JSON.stringify([newNotif, ...existing]));
-    });
-    // Add to current user's notifications too
-    const newNotif: AppNotification = {
-      id: Date.now().toString(),
-      title,
-      message,
-      time: "Just now",
-      read: false,
-      icon,
-    };
-    setNotifications((prev) => [newNotif, ...prev]);
+  const getAllUsers = useCallback(async () => {
+    const q = query(collection(db, "users"));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => doc.data() as User);
   }, []);
 
-  // Load user-specific notifications on login
-  useEffect(() => {
-    if (currentUserId) {
-      const key = `akplay-notif-${currentUserId}`;
-      const userNotifs = JSON.parse(localStorage.getItem(key) || "null");
-      if (userNotifs) {
-        setNotifications((prev) => {
-          const existingIds = new Set(prev.map((n) => n.id));
-          const newOnes = userNotifs.filter((n: AppNotification) => !existingIds.has(n.id));
-          return [...newOnes, ...prev];
-        });
-      }
-    }
-  }, [currentUserId]);
+  const addNotificationForUser = useCallback(async (userId: string, title: string, message: string, icon: string) => {
+    await addDoc(collection(db, "notifications"), {
+      targetId: userId,
+      title,
+      message,
+      icon,
+      createdAt: serverTimestamp(),
+      readBy: []
+    });
+  }, []);
+
+  const addNotificationForAll = useCallback(async (title: string, message: string, icon: string) => {
+    await addDoc(collection(db, "notifications"), {
+      targetId: "all",
+      title,
+      message,
+      icon,
+      createdAt: serverTimestamp(),
+      readBy: []
+    });
+  }, []);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
+
+  if (loadingInitial) {
+    return null; // or a loading spinner
+  }
 
   return (
     <AuthContext.Provider
       value={{
-        user,
+        user: currentUser,
         activeProfile,
-        isAuthenticated: !!user,
+        isAuthenticated: !!currentUser,
         showProfileSelector,
         signup,
         login,

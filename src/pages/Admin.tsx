@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   Lock,
   LogOut,
@@ -29,12 +29,6 @@ import { motion } from "motion/react";
 import { useSiteConfig, VideoEntry, CommunityPost, TextEntry } from "../context/SiteContext";
 import { useAuth, User as AppUser } from "../context/AuthContext";
 
-const ADMIN_CREDENTIALS = [
-  { username: "Sam@ADMIN", password: "S@ADMIN" },
-  { username: "Kundan@ADMIN", password: "K@ADMIN" },
-  { username: "Amar@ADMIN", password: "A@ADMIN" },
-];
-
 type Tab = "overview" | "videos" | "texts" | "community" | "users" | "notifications";
 
 export function Admin() {
@@ -52,26 +46,46 @@ export function Admin() {
   const [notifIcon, setNotifIcon] = useState("🎬");
   const [notifTarget, setNotifTarget] = useState<"all" | string>("all");
   const [notifSent, setNotifSent] = useState(false);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   // Use shared site context instead of local state
   const { videos, texts, communityPosts, setVideos, setTexts, setCommunityPosts, saveToServer } = useSiteConfig();
-  const { getAllUsers, addNotificationForUser, addNotificationForAll } = useAuth();
+  const { user, login, logout, getAllUsers, addNotificationForUser, addNotificationForAll } = useAuth();
 
-  const allUsers = getAllUsers();
+  const [allUsers, setAllUsers] = useState<AppUser[]>([]);
+
+  useEffect(() => {
+    // If user is logged in and is admin, we consider them logged in
+    if (user?.isAdmin) {
+      setIsLoggedIn(true);
+      if (activeTab === "overview" || activeTab === "users" || activeTab === "notifications") {
+        getAllUsers().then(setAllUsers).catch(console.error);
+      }
+    } else {
+      setIsLoggedIn(false);
+    }
+  }, [user, activeTab, getAllUsers]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    const validCred = ADMIN_CREDENTIALS.find(
-      (c) => c.username === username && c.password === password
-    );
-    if (validCred) {
-      setIsLoggedIn(true);
-      setLoginError("");
-    } else {
-      setLoginError("Invalid credentials. Please try again.");
+    setIsLoggingIn(true);
+    setLoginError("");
+
+    const result = await login(username, password);
+    if (!result.success) {
+      setLoginError(result.error || "Invalid credentials. Please try again.");
+      setIsLoggingIn(false);
+      return;
     }
+
+    // We rely on the useEffect above to check user.isAdmin once state updates
+    setTimeout(() => {
+      // If after 2 seconds we are still not logged in, they prob aren't an admin
+      setIsLoggingIn(false);
+      setLoginError("Access denied. Admin privileges required.");
+    }, 2000);
   };
 
   const showSave = (msg: string) => {
@@ -179,13 +193,13 @@ export function Admin() {
 
             <form onSubmit={handleLogin} className="space-y-5">
               <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">Username</label>
+                <label className="block text-sm font-medium text-gray-400 mb-2">Email</label>
                 <input
-                  type="text"
+                  type="email"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   className="w-full glass-input rounded-2xl px-4 py-3 text-white focus:outline-none"
-                  placeholder="Enter admin username"
+                  placeholder="Enter admin email"
                   autoComplete="username"
                 />
               </div>
@@ -218,9 +232,10 @@ export function Admin() {
 
               <button
                 type="submit"
-                className="w-full bg-gradient-to-r from-[#E62429] to-orange-500 text-white py-3.5 rounded-2xl font-bold hover:shadow-lg hover:shadow-[#E62429]/30 transition-all"
+                disabled={isLoggingIn}
+                className="w-full bg-gradient-to-r from-[#E62429] to-orange-500 text-white py-3.5 rounded-2xl font-bold hover:shadow-lg hover:shadow-[#E62429]/30 transition-all disabled:opacity-50"
               >
-                Sign In
+                {isLoggingIn ? "Signing In..." : "Sign In"}
               </button>
             </form>
           </div>
@@ -263,7 +278,7 @@ export function Admin() {
           </button>
           <button
             onClick={() => {
-              setIsLoggedIn(false);
+              logout();
               setUsername("");
               setPassword("");
             }}
@@ -283,11 +298,10 @@ export function Admin() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center space-x-2 px-5 py-2.5 rounded-2xl text-sm font-medium whitespace-nowrap transition-all ${
-                activeTab === tab.id
-                  ? "bg-[#E62429]/12 text-[#E62429] shadow-lg shadow-[#E62429]/10"
-                  : "glass-btn text-gray-400 hover:text-white"
-              }`}
+              className={`flex items-center space-x-2 px-5 py-2.5 rounded-2xl text-sm font-medium whitespace-nowrap transition-all ${activeTab === tab.id
+                ? "bg-[#E62429]/12 text-[#E62429] shadow-lg shadow-[#E62429]/10"
+                : "glass-btn text-gray-400 hover:text-white"
+                }`}
             >
               <Icon className="w-4 h-4" />
               <span>{tab.label}</span>
@@ -409,9 +423,8 @@ export function Admin() {
                       <option value="draft" className="bg-[#141414]">Draft</option>
                       <option value="published" className="bg-[#141414]">Published</option>
                     </select>
-                    <span className={`text-xs font-bold px-3 py-1 rounded-full ${
-                      video.status === "published" ? "bg-green-500/10 text-green-400" : "bg-yellow-500/10 text-yellow-400"
-                    }`}>
+                    <span className={`text-xs font-bold px-3 py-1 rounded-full ${video.status === "published" ? "bg-green-500/10 text-green-400" : "bg-yellow-500/10 text-yellow-400"
+                      }`}>
                       {video.status === "published" ? "Published" : "Draft"}
                     </span>
                   </div>
@@ -696,9 +709,8 @@ export function Admin() {
                       <div className="flex items-center gap-3">
                         {u.subscription ? (
                           <div className="text-right">
-                            <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold uppercase ${
-                              isExpired ? "bg-red-500/15 text-red-400" : "bg-green-500/15 text-green-400"
-                            }`}>
+                            <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold uppercase ${isExpired ? "bg-red-500/15 text-red-400" : "bg-green-500/15 text-green-400"
+                              }`}>
                               {isExpired ? "Expired" : `${u.subscription} Plan`}
                             </span>
                             {daysLeft !== null && !isExpired && (
@@ -765,9 +777,8 @@ export function Admin() {
               <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => setNotifTarget("all")}
-                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
-                    notifTarget === "all" ? "bg-[#E62429] text-white" : "glass-btn text-gray-400"
-                  }`}
+                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${notifTarget === "all" ? "bg-[#E62429] text-white" : "glass-btn text-gray-400"
+                    }`}
                 >
                   All Users
                 </button>
@@ -775,9 +786,8 @@ export function Admin() {
                   <button
                     key={u.id}
                     onClick={() => setNotifTarget(u.id)}
-                    className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                      notifTarget === u.id ? "bg-[#E62429] text-white" : "glass-btn text-gray-400"
-                    }`}
+                    className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${notifTarget === u.id ? "bg-[#E62429] text-white" : "glass-btn text-gray-400"
+                      }`}
                   >
                     {u.name}
                   </button>
@@ -793,9 +803,8 @@ export function Admin() {
                   <button
                     key={icon}
                     onClick={() => setNotifIcon(icon)}
-                    className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg transition-all ${
-                      notifIcon === icon ? "bg-[#E62429]/20 ring-2 ring-[#E62429] scale-110" : "bg-white/5 hover:bg-white/10"
-                    }`}
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg transition-all ${notifIcon === icon ? "bg-[#E62429]/20 ring-2 ring-[#E62429] scale-110" : "bg-white/5 hover:bg-white/10"
+                      }`}
                   >
                     {icon}
                   </button>
@@ -865,12 +874,12 @@ export function Admin() {
 
             {/* Send button */}
             <button
-              onClick={() => {
+              onClick={async () => {
                 if (!notifTitle.trim() || !notifMessage.trim()) return;
                 if (notifTarget === "all") {
-                  addNotificationForAll(notifTitle.trim(), notifMessage.trim(), notifIcon);
+                  await addNotificationForAll(notifTitle.trim(), notifMessage.trim(), notifIcon);
                 } else {
-                  addNotificationForUser(notifTarget, notifTitle.trim(), notifMessage.trim(), notifIcon);
+                  await addNotificationForUser(notifTarget, notifTitle.trim(), notifMessage.trim(), notifIcon);
                 }
                 setNotifSent(true);
                 setTimeout(() => setNotifSent(false), 3000);
