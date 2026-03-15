@@ -1,0 +1,4 @@
+## 2024-05-24 - Removed Hardcoded Admin Credentials
+**Vulnerability:** Admin credentials (username/password) were hardcoded in `src/pages/Admin.tsx` as a plaintext array, visible in the client-side bundle.
+**Learning:** Client-side React applications built with Vite expose all their source code in the browser bundle. Storing authentication secrets directly in components is a critical vulnerability that allows anyone to view the source, extract credentials, and access the admin panel.
+**Prevention:** Moved authentication logic to a backend API route (`api/admin-login.ts`). The API route securely accesses the `ADMIN_CREDENTIALS` environment variable (which remains only on the server) and verifies the user. The client-side code now only sends a `POST` request to the API without containing any secrets itself.
