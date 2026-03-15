@@ -161,7 +161,10 @@ export function Chatbot() {
 
       const response = await fetch('/api/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': import.meta.env.VITE_CHAT_API_KEY
+        },
         body: JSON.stringify({
           systemInstruction: buildSystemInstruction(videoNames, communityPostSummaries),
           contents: newHistory,
