@@ -129,7 +129,7 @@ export function Subscription() {
 
   const handlePaymentSuccess = () => {
     if (paymentPlan) {
-      setSubscription(paymentPlan.id, paymentPlan.amount);
+      alert("Payment submitted successfully! Your subscription will be activated once an Admin verifies the transaction.");
       setPaymentPlan(null);
     }
   };
@@ -214,9 +214,8 @@ export function Subscription() {
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: index * 0.1 }}
-              className={`relative glass-card rounded-3xl p-6 md:p-8 flex flex-col ${
-                plan.popular ? `ring-1 ring-[#E62429]/30 ${plan.shadow} shadow-2xl` : ""
-              } ${isCurrent ? "ring-2 ring-green-500/40" : ""}`}
+              className={`relative glass-card rounded-3xl p-6 md:p-8 flex flex-col ${plan.popular ? `ring-1 ring-[#E62429]/30 ${plan.shadow} shadow-2xl` : ""
+                } ${isCurrent ? "ring-2 ring-green-500/40" : ""}`}
             >
               {plan.popular && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">
@@ -252,23 +251,22 @@ export function Subscription() {
               <button
                 onClick={() => handleSubscribe(plan)}
                 disabled={isCurrent && !isSubscriptionExpired}
-                className={`w-full py-3.5 rounded-2xl font-bold text-sm transition-all duration-300 ${
-                  isCurrent && !isSubscriptionExpired
+                className={`w-full py-3.5 rounded-2xl font-bold text-sm transition-all duration-300 ${isCurrent && !isSubscriptionExpired
                     ? "bg-green-500/15 text-green-400 cursor-default"
                     : isUpgrading(plan.id)
-                    ? `bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:opacity-90 hover:shadow-lg shadow-amber-500/20`
-                    : plan.popular
-                    ? `bg-gradient-to-r ${plan.color} text-white hover:opacity-90 hover:shadow-lg ${plan.shadow}`
-                    : "glass-btn text-white hover:bg-white/12"
-                } disabled:opacity-50`}
+                      ? `bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:opacity-90 hover:shadow-lg shadow-amber-500/20`
+                      : plan.popular
+                        ? `bg-gradient-to-r ${plan.color} text-white hover:opacity-90 hover:shadow-lg ${plan.shadow}`
+                        : "glass-btn text-white hover:bg-white/12"
+                  } disabled:opacity-50`}
               >
                 {isCurrent && !isSubscriptionExpired
                   ? "Current Plan"
                   : isCurrent && isSubscriptionExpired
-                  ? "Renew Now"
-                  : isUpgrading(plan.id)
-                  ? "Upgrade"
-                  : "Subscribe Now"}
+                    ? "Renew Now"
+                    : isUpgrading(plan.id)
+                      ? "Upgrade"
+                      : "Subscribe Now"}
               </button>
             </motion.div>
           );

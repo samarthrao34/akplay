@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { X, Copy, Check, Smartphone, QrCode, ArrowUpCircle, ExternalLink } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { useAuth } from "../context/AuthContext";
+import { db } from "../lib/firebase";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
 interface PaymentModalProps {
   planName: string;
@@ -31,6 +34,7 @@ const PAYMENT_APPS = [
 ];
 
 export function PaymentModal({ planName, planPrice, onClose, onSuccess, isUpgrade }: PaymentModalProps) {
+  const { user } = useAuth();
   const [copied, setCopied] = useState(false);
   const [transactionId, setTransactionId] = useState("");
   const [verifying, setVerifying] = useState(false);
@@ -62,7 +66,7 @@ export function PaymentModal({ planName, planPrice, onClose, onSuccess, isUpgrad
     window.location.href = upiUrl;
   };
 
-  const handleVerify = () => {
+  const handleVerify = async () => {
     const trimmed = transactionId.trim();
     if (!trimmed) {
       setError("Please enter your UPI Transaction ID / UTR number.");
@@ -73,27 +77,32 @@ export function PaymentModal({ planName, planPrice, onClose, onSuccess, isUpgrad
       return;
     }
 
+    if (!user) {
+      setError("You must be logged in to confirm a payment.");
+      return;
+    }
+
     setError("");
     setVerifying(true);
 
-    // Store the transaction reference for admin review
-    const pendingPayments = JSON.parse(localStorage.getItem("akplay-pending-payments") || "[]");
-    pendingPayments.push({
-      id: Date.now().toString(),
-      transactionId: trimmed,
-      plan: planName,
-      amount: planPrice,
-      date: new Date().toISOString(),
-      status: "pending-verification",
-    });
-    localStorage.setItem("akplay-pending-payments", JSON.stringify(pendingPayments));
+    try {
+      await addDoc(collection(db, "pending_payments"), {
+        userId: user.id,
+        userEmail: user.email,
+        transactionId: trimmed,
+        plan: planName,
+        amount: planPrice,
+        createdAt: serverTimestamp(),
+        status: "pending",
+      });
 
-    // For now, accept the payment after transaction ID is provided
-    // In production, this would verify with the payment gateway
-    setTimeout(() => {
       setVerifying(false);
       onSuccess();
-    }, 2000);
+    } catch (err: any) {
+      console.error(err);
+      setError("Failed to submit payment verification. Please try again.");
+      setVerifying(false);
+    }
   };
 
   return (
@@ -251,16 +260,16 @@ export function PaymentModal({ planName, planPrice, onClose, onSuccess, isUpgrad
                   {verifying ? (
                     <span className="flex items-center justify-center gap-2">
                       <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Verifying...
+                      Submitting...
                     </span>
                   ) : (
-                    "Verify & Activate"
+                    "Submit for Verification"
                   )}
                 </button>
               </div>
 
               <p className="text-gray-500 text-[11px] text-center leading-relaxed">
-                Your subscription will be activated after verification. If you face any issues, contact us at akplay@akproductionhouse.in
+                Your subscription will be activated after an admin verifies your transaction (usually within 2-4 hours). If you face any issues, contact us at akplay@akproductionhouse.in
               </p>
             </div>
           )}

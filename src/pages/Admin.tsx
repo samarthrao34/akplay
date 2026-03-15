@@ -28,6 +28,19 @@ import {
 import { motion } from "motion/react";
 import { useSiteConfig, VideoEntry, CommunityPost, TextEntry } from "../context/SiteContext";
 import { useAuth, User as AppUser } from "../context/AuthContext";
+import { db } from "../lib/firebase";
+import { collection, getDocs, doc, updateDoc, deleteDoc } from "firebase/firestore";
+
+type PendingPayment = {
+  id: string;
+  userId: string;
+  userEmail: string;
+  transactionId: string;
+  plan: string;
+  amount: string;
+  createdAt: any;
+  status: string;
+};
 
 type Tab = "overview" | "videos" | "texts" | "community" | "users" | "notifications";
 
@@ -53,6 +66,8 @@ export function Admin() {
   const { user, login, logout, getAllUsers, addNotificationForUser, addNotificationForAll } = useAuth();
 
   const [allUsers, setAllUsers] = useState<AppUser[]>([]);
+  const [pendingPayments, setPendingPayments] = useState<PendingPayment[]>([]);
+  const [loadingPayments, setLoadingPayments] = useState(false);
 
   useEffect(() => {
     // If user is logged in and is admin, we consider them logged in
@@ -60,6 +75,15 @@ export function Admin() {
       setIsLoggedIn(true);
       if (activeTab === "overview" || activeTab === "users" || activeTab === "notifications") {
         getAllUsers().then(setAllUsers).catch(console.error);
+        if (activeTab === "users") {
+          setLoadingPayments(true);
+          getDocs(collection(db, "pending_payments"))
+            .then(snap => {
+              setPendingPayments(snap.docs.map(d => ({ id: d.id, ...d.data() } as PendingPayment)));
+            })
+            .catch(console.error)
+            .finally(() => setLoadingPayments(false));
+        }
       }
     } else {
       setIsLoggedIn(false);
@@ -161,6 +185,57 @@ export function Admin() {
 
   const deleteText = (id: string) => {
     setTexts(texts.filter((t) => t.id !== id));
+  };
+
+  const handleApprovePayment = async (payment: PendingPayment) => {
+    try {
+      const u = allUsers.find(x => x.id === payment.userId);
+      if (!u) {
+        alert("User not found in user list!");
+        return;
+      }
+
+      const expiry = new Date();
+      expiry.setMonth(expiry.getMonth() + 1);
+
+      const newHistory = [...(u.paymentHistory || []), {
+        id: payment.id,
+        amount: payment.amount,
+        plan: payment.plan,
+        date: new Date().toISOString(),
+        status: "completed" as const
+      }];
+
+      await updateDoc(doc(db, "users", payment.userId), {
+        subscription: payment.plan.toLowerCase(),
+        subscriptionStartDate: new Date().toISOString(),
+        subscriptionExpiry: expiry.toISOString(),
+        paymentHistory: newHistory
+      });
+
+      await addNotificationForUser(payment.userId, "Subscription Activated! 🎉", `Your ${payment.plan} subscription has been approved and is now active. Enjoy AKPLAY!`, "👑");
+      await deleteDoc(doc(db, "pending_payments", payment.id));
+
+      setPendingPayments(prev => prev.filter(p => p.id !== payment.id));
+      getAllUsers().then(setAllUsers);
+      showSave("Payment approved!");
+    } catch (e) {
+      console.error(e);
+      alert("Failed to approve payment.");
+    }
+  };
+
+  const handleRejectPayment = async (payment: PendingPayment) => {
+    try {
+      if (!confirm("Are you sure you want to reject this payment?")) return;
+      await deleteDoc(doc(db, "pending_payments", payment.id));
+      await addNotificationForUser(payment.userId, "Payment Rejected ⚠️", "We could not verify your recent payment. Please contact support.", "⚠️");
+      setPendingPayments(prev => prev.filter(p => p.id !== payment.id));
+      showSave("Payment rejected!");
+    } catch (e) {
+      console.error(e);
+      alert("Failed to reject payment.");
+    }
   };
 
   const tabs: { id: Tab; label: string; icon: typeof Settings }[] = [
@@ -659,6 +734,50 @@ export function Admin() {
               />
             </div>
           </div>
+
+          {/* Pending Payments Queue */}
+          {loadingPayments ? (
+            <div className="glass-card rounded-2xl p-6 flex justify-center items-center">
+              <span className="w-6 h-6 border-2 border-white/30 border-t-[#E62429] rounded-full animate-spin" />
+            </div>
+          ) : pendingPayments.length > 0 ? (
+            <div className="glass-card rounded-3xl p-6 border border-orange-500/30 shadow-[0_0_15px_rgba(230,36,41,0.2)]">
+              <h3 className="text-lg font-bold text-orange-400 mb-4 flex items-center gap-2">
+                <Clock className="w-5 h-5" /> Pending Payment Approvals ({pendingPayments.length})
+              </h3>
+              <div className="space-y-3">
+                {pendingPayments.map(p => (
+                  <div key={p.id} className="bg-black/30 rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                      <p className="text-white font-bold text-sm">{p.userEmail}</p>
+                      <p className="text-gray-400 text-xs mt-0.5">UPI / UTR: <span className="text-white font-mono">{p.transactionId}</span></p>
+                      <p className="text-gray-500 text-[10px] mt-1">Requested: {new Date(p.createdAt?.toDate?.() || Date.now()).toLocaleString()}</p>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <p className="text-white font-bold">{p.amount}</p>
+                        <p className="text-orange-400 text-[10px] font-bold uppercase">{p.plan} Plan</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleApprovePayment(p)}
+                          className="bg-green-500/20 text-green-400 hover:bg-green-500/30 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1"
+                        >
+                          <Check className="w-3 h-3" /> Approve
+                        </button>
+                        <button
+                          onClick={() => handleRejectPayment(p)}
+                          className="bg-red-500/20 text-red-400 hover:bg-red-500/30 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1"
+                        >
+                          <X className="w-3 h-3" /> Reject
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
 
           {/* Stats */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
