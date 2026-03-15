@@ -80,7 +80,7 @@ const PLANS: Plan[] = [
 ];
 
 export function Subscription() {
-  const { user, setSubscription, isAuthenticated, activeProfile, isSubscriptionExpired, daysUntilExpiry } = useAuth();
+  const { user, isAuthenticated, activeProfile, isSubscriptionExpired, daysUntilExpiry } = useAuth();
   const [paymentPlan, setPaymentPlan] = useState<Plan | null>(null);
   const navigate = useNavigate();
 
@@ -252,12 +252,12 @@ export function Subscription() {
                 onClick={() => handleSubscribe(plan)}
                 disabled={isCurrent && !isSubscriptionExpired}
                 className={`w-full py-3.5 rounded-2xl font-bold text-sm transition-all duration-300 ${isCurrent && !isSubscriptionExpired
-                    ? "bg-green-500/15 text-green-400 cursor-default"
-                    : isUpgrading(plan.id)
-                      ? `bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:opacity-90 hover:shadow-lg shadow-amber-500/20`
-                      : plan.popular
-                        ? `bg-gradient-to-r ${plan.color} text-white hover:opacity-90 hover:shadow-lg ${plan.shadow}`
-                        : "glass-btn text-white hover:bg-white/12"
+                  ? "bg-green-500/15 text-green-400 cursor-default"
+                  : isUpgrading(plan.id)
+                    ? `bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:opacity-90 hover:shadow-lg shadow-amber-500/20`
+                    : plan.popular
+                      ? `bg-gradient-to-r ${plan.color} text-white hover:opacity-90 hover:shadow-lg ${plan.shadow}`
+                      : "glass-btn text-white hover:bg-white/12"
                   } disabled:opacity-50`}
               >
                 {isCurrent && !isSubscriptionExpired

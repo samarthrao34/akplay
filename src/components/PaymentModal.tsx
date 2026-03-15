@@ -39,7 +39,7 @@ export function PaymentModal({ planName, planPrice, onClose, onSuccess, isUpgrad
   const [transactionId, setTransactionId] = useState("");
   const [verifying, setVerifying] = useState(false);
   const [error, setError] = useState("");
-  const [step, setStep] = useState<"pay" | "verify">("pay");
+  const [step, setStep] = useState<"pay" | "verify" | "submitted">("pay");
 
   const priceNum = planPrice.replace(/[^\d]/g, "");
 
@@ -97,7 +97,7 @@ export function PaymentModal({ planName, planPrice, onClose, onSuccess, isUpgrad
       });
 
       setVerifying(false);
-      onSuccess();
+      setStep("submitted");
     } catch (err: any) {
       console.error(err);
       setError("Failed to submit payment verification. Please try again.");
@@ -212,7 +212,7 @@ export function PaymentModal({ planName, planPrice, onClose, onSuccess, isUpgrad
                 I've Made the Payment — Verify Now
               </button>
             </div>
-          ) : (
+          ) : step === "verify" ? (
             <div className="p-6 space-y-6">
               {/* Transaction Verification */}
               <div className="text-center">
@@ -271,6 +271,53 @@ export function PaymentModal({ planName, planPrice, onClose, onSuccess, isUpgrad
               <p className="text-gray-500 text-[11px] text-center leading-relaxed">
                 Your subscription will be activated after an admin verifies your transaction (usually within 2-4 hours). If you face any issues, contact us at akplay@akproductionhouse.in
               </p>
+            </div>
+          ) : (
+            /* Step 3: Success Confirmation */
+            <div className="p-8 space-y-6 text-center">
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: "spring", damping: 15, stiffness: 200 }}
+                className="w-20 h-20 mx-auto rounded-full bg-green-500/15 flex items-center justify-center"
+              >
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ delay: 0.2, type: "spring" }}
+                >
+                  <Check className="w-10 h-10 text-green-400" />
+                </motion.div>
+              </motion.div>
+              <div>
+                <h3 className="text-xl font-bold text-white mb-2">Payment Submitted!</h3>
+                <p className="text-gray-400 text-sm leading-relaxed">
+                  Your <span className="text-white font-semibold">{planName}</span> plan payment has been submitted for verification.
+                </p>
+              </div>
+              <div className="glass-card rounded-2xl p-4 text-left space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-400">Plan</span>
+                  <span className="text-white font-semibold">{planName}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-400">Amount</span>
+                  <span className="text-white font-semibold">{planPrice}/month</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-400">Status</span>
+                  <span className="text-orange-400 font-semibold">Pending Verification</span>
+                </div>
+              </div>
+              <p className="text-gray-500 text-xs leading-relaxed">
+                An admin will verify your transaction usually within <span className="text-white">2–4 hours</span>. You'll receive a notification once your subscription is activated.
+              </p>
+              <button
+                onClick={() => { onSuccess(); onClose(); }}
+                className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:shadow-lg hover:shadow-green-500/30 text-white py-3.5 rounded-2xl font-bold text-sm transition-all"
+              >
+                Done
+              </button>
             </div>
           )}
         </motion.div>

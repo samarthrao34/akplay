@@ -1,12 +1,13 @@
-import { Play, Info } from "lucide-react";
+import { Play, Volume2, VolumeX } from "lucide-react";
 import { motion } from "motion/react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSiteConfig } from "../context/SiteContext";
 
 export function Home() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const { getText, videos } = useSiteConfig();
   const publishedVideo = videos.find((v) => v.status === "published");
+  const [muted, setMuted] = useState(true);
 
   useEffect(() => {
     // Prevent right-click context menu on the entire page
@@ -37,9 +38,16 @@ export function Home() {
     };
   }, []);
 
+  const toggleMute = () => {
+    if (videoRef.current) {
+      videoRef.current.muted = !videoRef.current.muted;
+      setMuted(videoRef.current.muted);
+    }
+  };
+
   return (
     <div className="min-h-full bg-[#050505] text-white pb-20 flex flex-col items-center pt-16 md:pt-24">
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
@@ -53,7 +61,7 @@ export function Home() {
         </p>
       </motion.div>
 
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.6, delay: 0.2 }}
@@ -64,6 +72,7 @@ export function Home() {
             ref={videoRef}
             autoPlay
             loop
+            muted
             playsInline
             preload="auto"
             controlsList="nodownload noplaybackrate"
@@ -88,6 +97,15 @@ export function Home() {
             <h2 className="text-xl sm:text-3xl md:text-5xl font-extrabold tracking-tight">{getText("Home", "Video Title")}</h2>
             <p className="text-gray-300 mt-1 md:mt-2 max-w-xl font-medium text-xs md:text-sm">{getText("Home", "Video Subtitle")}</p>
           </div>
+
+          {/* Mute/Unmute Button */}
+          <button
+            onClick={toggleMute}
+            className="absolute bottom-4 right-4 z-30 w-10 h-10 md:w-11 md:h-11 rounded-full bg-black/60 backdrop-blur-md border border-white/10 flex items-center justify-center text-white hover:bg-black/80 transition-all hover:scale-105"
+            title={muted ? "Unmute" : "Mute"}
+          >
+            {muted ? <VolumeX className="w-4 h-4 md:w-5 md:h-5" /> : <Volume2 className="w-4 h-4 md:w-5 md:h-5" />}
+          </button>
         </div>
       </motion.div>
 
