@@ -13,6 +13,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(503).json({ error: 'AI service not configured' });
   }
 
+  const chatApiKey = process.env.CHAT_API_KEY;
+  if (!chatApiKey || req.headers['x-api-key'] !== chatApiKey) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
   const { systemInstruction, contents } = req.body ?? {};
 
   if (!systemInstruction || typeof systemInstruction !== 'string') {
