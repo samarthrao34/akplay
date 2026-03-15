@@ -17,12 +17,16 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 
 // Initialize App Check (requires a reCAPTCHA v3 site key)
-// If you don't have one yet, it will fail silently in dev but is needed for prod.
-if (typeof window !== 'undefined') {
-    initializeAppCheck(app, {
-        provider: new ReCaptchaV3Provider(import.meta.env.VITE_RECAPTCHA_SITE_KEY || 'dummy_key_for_dev'),
-        isTokenAutoRefreshEnabled: true
-    });
+// Only initialize if the key is actually provided to prevent crashing the app.
+if (typeof window !== 'undefined' && import.meta.env.VITE_RECAPTCHA_SITE_KEY) {
+    try {
+        initializeAppCheck(app, {
+            provider: new ReCaptchaV3Provider(import.meta.env.VITE_RECAPTCHA_SITE_KEY),
+            isTokenAutoRefreshEnabled: true
+        });
+    } catch (err) {
+        console.error("AppCheck failed to initialize:", err);
+    }
 }
 
 // Initialize Firebase Authentication and get a reference to the service
