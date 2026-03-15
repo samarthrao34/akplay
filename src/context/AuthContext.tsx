@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
+import { isValidEmail } from "../utils/emailValidation";
 
 export interface UserProfile {
   id: string;
@@ -63,19 +64,7 @@ export interface AppNotification {
   icon: string;
 }
 
-// Email validation - checks for valid format with real domain patterns
-export function isValidEmail(email: string): boolean {
-  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-  if (!emailRegex.test(email)) return false;
-  // Block obviously fake domains
-  const domain = email.split("@")[1].toLowerCase();
-  const blockedPatterns = ["test.com", "fake.com", "example.com", "asdf.com", "abc.com", "xyz.xyz"];
-  if (blockedPatterns.includes(domain)) return false;
-  // Must have valid TLD
-  const tld = domain.split(".").pop() || "";
-  if (tld.length < 2) return false;
-  return true;
-}
+export { isValidEmail };
 
 // Password validation - minimum 6 chars, at least one letter and one number
 export function isValidPassword(password: string): { valid: boolean; error?: string } {
