@@ -69,13 +69,19 @@ Rules:
 `;
 }
 
+interface ChatMessage {
+  role: 'user' | 'model';
+  text: string;
+  video?: string;
+}
+
 export function Chatbot() {
   const { videos, communityPosts } = useSiteConfig();
   const videoNames = videos.filter(v => v.status === "published").map(v => `${v.title} — ${v.description}`);
   const communityPostSummaries = communityPosts.map(p => `${p.author}: "${p.text}" (${p.date})`);
 
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<{ role: 'user' | 'model'; text: string; video?: string }[]>([
+  const [messages, setMessages] = useState<ChatMessage[]>([
     { role: 'model', text: 'Hi there! I\'m Soni, your AKPLAY assistant! 🎬 How can I help you today? You can ask me about our content, plans, or even upload a video for analysis!' }
   ]);
   const [input, setInput] = useState('');
@@ -131,7 +137,7 @@ export function Chatbot() {
     setInput('');
     setSelectedVideo(null);
     
-    const newMessage: any = { role: 'user', text: userMessage };
+    const newMessage: ChatMessage = { role: 'user', text: userMessage };
     if (videoFile) {
       newMessage.video = URL.createObjectURL(videoFile);
     }
